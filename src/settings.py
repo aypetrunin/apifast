@@ -3,7 +3,7 @@ import logging
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    langgraph_url: str = "http://127.0.0.1:8123"
+    langgraph_url: str = "http://172.17.0.1:8123"
     cors_origins: list[str] = ["*"]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

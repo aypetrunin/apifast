@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.25.0",
-    "uvicorn>=0.35.0",
     "sse-starlette>=2.1.0,<2.2.0",
     "uvloop>=0.18.0",
     "httptools>=0.5.0",
@@ -21,6 +20,7 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "langgraph-sdk>=0.2.9",
     "aiohttp>=3.13.1",
+    "uvicorn>=0.38.0",
 ]
 
 [dependency-groups]

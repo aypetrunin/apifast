@@ -1,0 +1,14 @@
+services:
+  apifast:
+    container_name: zena_apifast
+    build: .
+    image: zena_apifast:latest
+    env_file:
+      - .env
+    ports:
+      - "3024:3024"
+    volumes:
+      - ./src:/app/src
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+    restart: unless-stopped

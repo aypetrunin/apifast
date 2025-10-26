@@ -1,3 +1,6 @@
+
+
+
 # 1.Фиксация версии Python для проекта
 # переходим в рабочий каталог и выполняем команду
 uv python pin 3.11
@@ -34,3 +37,7 @@ uv add --dev pytest
 
 # 8. Посмотреть дерево пакетов
 uv tree
+
+# 9. Просмотр логов в живую
+docker logs -f zena_mcp
+docker logs --tail 100 zena_mcp
