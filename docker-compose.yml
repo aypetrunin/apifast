@@ -1,8 +1,8 @@
 services:
   apifast:
-    container_name: zena_apifast
+    container_name: zena_apifast_
     build: .
-    image: zena_apifast:latest
+    image: zena_apifast:latest_
     env_file:
       - .env
     ports:

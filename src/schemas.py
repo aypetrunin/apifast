@@ -2,6 +2,7 @@
 from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional
 
+
 class AgentRunParams(BaseModel):
     # плоские поля из входного JSON
     user_id: int
@@ -19,4 +20,3 @@ class AgentRunParams(BaseModel):
     assistant_id: Optional[str] = Field(default="agent_zena")
     config: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
-

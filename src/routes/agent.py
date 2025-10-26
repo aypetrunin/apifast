@@ -4,10 +4,8 @@ import time
 from collections.abc import Mapping
 from typing import Tuple, List, Dict, Any, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi import Response
-from fastapi import HTTPException
 
 from ..deps import langgraph_client
 from ..schemas import AgentRunParams
@@ -17,11 +15,14 @@ from ..requests.httpservice import sent_message_to_history
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
+
 class PayloadError(ValueError):
     pass
 
 
-def build_messages_and_context(params: "AgentRunParams") -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def build_messages_and_context(
+    params: "AgentRunParams",
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     # базовая семантическая проверка
     if not params.message or not isinstance(params.message, str):
         raise PayloadError("message must be a non-empty string")
@@ -42,7 +43,6 @@ def build_messages_and_context(params: "AgentRunParams") -> Tuple[List[Dict[str,
 
 @router.post("/run_sync")
 async def run_sync(params: AgentRunParams):
-    
     t0 = time.perf_counter()
     messages: Optional[list[dict[str, Any]]] = None
     context: Optional[dict[str, Any]] = None
@@ -79,21 +79,21 @@ async def run_sync(params: AgentRunParams):
         # print(final_state)
 
         msgs = final_state.get("messages")
-        text = msgs[-1]['content'] if isinstance(msgs, list) and msgs else ""
+        text = msgs[-1]["content"] if isinstance(msgs, list) and msgs else ""
         payload = {
-            "user_id": context.get('_user_id'),
+            "user_id": context.get("_user_id"),
             "text": text,
-            "user_companychat": context.get('_user_companychat'),
-            "reply_to_history_id": context.get('_reply_to_history_id'),
-            "access_token": context.get('_access_token'),
-            "tokens": final_state.get('tokens'),
-            "tools": final_state.get('tools_name', []),
-            "tools_args": final_state.get('tools_args',{}),
-            "tools_result": final_state.get('tools_results', {}),
-            "prompt_system": final_state.get('prompt_system', ''),
-            "template_prompt_system": final_state.get('template_prompt_system', ''),
-            "dialog_state": final_state.get('dialog_state', ''),
-            "dialog_state_new": final_state.get('dialog_state_new', ''),
+            "user_companychat": context.get("_user_companychat"),
+            "reply_to_history_id": context.get("_reply_to_history_id"),
+            "access_token": context.get("_access_token"),
+            "tokens": final_state.get("tokens"),
+            "tools": final_state.get("tools_name", []),
+            "tools_args": final_state.get("tools_args", {}),
+            "tools_result": final_state.get("tools_results", {}),
+            "prompt_system": final_state.get("prompt_system", ""),
+            "template_prompt_system": final_state.get("template_prompt_system", ""),
+            "dialog_state": final_state.get("dialog_state", ""),
+            "dialog_state_new": final_state.get("dialog_state_new", ""),
         }
 
         info = "--OK--"
@@ -120,19 +120,24 @@ async def run_sync(params: AgentRunParams):
             tok_mask = f"{tok[:5]}" if tok else "NA"
 
             d_build = (t_build - t0) if t_build is not None else 0.0
-            d_create = (t1 - t_build) if (t1 is not None and t_build is not None) else 0.0
+            d_create = (
+                (t1 - t_build) if (t1 is not None and t_build is not None) else 0.0
+            )
             d_exec = (t2 - t1) if (t2 is not None and t1 is not None) else 0.0
-            base = t2 if t2 is not None else t0
-            d_save = t_save1 - t_save0  # замените на (t_save1 - t_save0), когда включите запись # t3 - base 
+            d_save = (
+                t_save1 - t_save0
+            )  # замените на (t_save1 - t_save0), когда включите запись # t3 - base
             d_all = t3 - t0
-            
+
             if info == "--OK--":
-                logger.info(f"{info}. agent({tok_mask}) - build:{d_build:.3f}s, create:{d_create:.3f}s, exec:{d_exec:.3f}s, save:{d_save:.3f}s, all:{d_all:.3f}s")
+                logger.info(
+                    f"{info}. agent({tok_mask}) - build:{d_build:.3f}s, create:{d_create:.3f}s, exec:{d_exec:.3f}s, save:{d_save:.3f}s, all:{d_all:.3f}s"
+                )
             else:
                 logger.error(f"{info}. {success_response['exception']}")
 
             return JSONResponse(content=success_response, status_code=status_code)
-        
+
         except Exception as e2:
             logger.error(f"save_to_postgres_error: {e2}")
 
@@ -140,7 +145,7 @@ async def run_sync(params: AgentRunParams):
 @router.post("/run")
 async def run_stream(params: AgentRunParams):
     messages, context = build_messages_and_context(params)
-    
+
     async def stream():
         async with langgraph_client() as client:
             async for part in client.runs.stream(
@@ -160,9 +165,13 @@ async def run_stream(params: AgentRunParams):
                         payload = part.json()
                     except AttributeError:
                         try:
-                            payload = json.dumps(part.__dict__, ensure_ascii=False, default=str)
+                            payload = json.dumps(
+                                part.__dict__, ensure_ascii=False, default=str
+                            )
                         except Exception:
-                            payload = json.dumps({"event": str(part)}, ensure_ascii=False)
+                            payload = json.dumps(
+                                {"event": str(part)}, ensure_ascii=False
+                            )
                 yield f"data: {payload}\n\n".encode("utf-8")
 
     return StreamingResponse(stream(), media_type="text/event-stream")

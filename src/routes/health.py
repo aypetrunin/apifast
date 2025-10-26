@@ -6,6 +6,7 @@ from ..settings import settings
 
 router = APIRouter(prefix="/health", tags=["health"])
 
+
 @router.get("/ok")
 async def ok(check_db: int = Query(0, ge=0, le=1)):
     url = f"{settings.langgraph_url.rstrip('/')}/ok"

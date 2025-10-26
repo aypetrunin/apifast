@@ -1,9 +1,8 @@
 import aiohttp
-import aiohttp
 import random
 import asyncio
 
-from typing_extensions import Any, Awaitable, Callable, TypeVar, Union
+from typing_extensions import Any, Awaitable, Callable, TypeVar
 
 from ..settings import logger
 
@@ -11,20 +10,20 @@ T = TypeVar("T")
 
 
 async def sent_message_to_history(
-        user_id: int,
-        text: str,
-        user_companychat: int,
-        reply_to_history_id: int,
-        access_token: str,
-        tokens: dict,
-        tools: list,
-        tools_args: dict,
-        tools_result: dict,
-        prompt_system: str,
-        template_prompt_system: str,
-        dialog_state: str,
-        dialog_state_new: str,
-        ) -> dict:
+    user_id: int,
+    text: str,
+    user_companychat: int,
+    reply_to_history_id: int,
+    access_token: str,
+    tokens: dict,
+    tools: list,
+    tools_args: dict,
+    tools_result: dict,
+    prompt_system: str,
+    template_prompt_system: str,
+    dialog_state: str,
+    dialog_state_new: str,
+) -> dict:
     return await retry_async(
         _sent_message_to_history,
         user_id,
@@ -40,7 +39,9 @@ async def sent_message_to_history(
         template_prompt_system,
         dialog_state,
         dialog_state_new,
-        )
+    )
+
+
 async def _sent_message_to_history(
     user_id: int,
     text: str,
@@ -71,9 +72,7 @@ async def _sent_message_to_history(
         "template_prompt_system": template_prompt_system,
         "dialog_state": dialog_state,
         "dialog_state_new": dialog_state_new,
-
     }
-    print("________sent_message_to_history__________")
     # headers = {
     #     "Authorization": f"Bearer {access_token}",
     #     "Accept": "application/json",
@@ -85,9 +84,6 @@ async def _sent_message_to_history(
             # async with session.post(url, json=payload, headers=headers) as resp:
             async with session.post(url, json=payload) as resp:
                 resp.raise_for_status()
-                # Если сервер возвращает JSON
-                print("_______sent_message_to_history_______")
-                print(await resp.json())
                 return await resp.json()
     except aiohttp.ClientResponseError as e:
         logger.warning(f"HTTP error: {e.status} {e.message}")
@@ -99,6 +95,7 @@ async def _sent_message_to_history(
         logger.warning(f"Client error: {e}")
         raise
 
+
 async def retry_async(
     func: Callable[..., Awaitable[T]],
     *args: Any,
@@ -106,7 +103,7 @@ async def retry_async(
     backoff: float = 2.0,
     jitter: float = 1.0,
     exceptions: tuple[type[Exception], ...] = (Exception,),
-    **kwargs: Any
+    **kwargs: Any,
 ) -> T:
     """
     Асинхронные ретраи с экспоненциальным бэкоффом и равномерным джиттером.
@@ -121,9 +118,11 @@ async def retry_async(
             return await func(*args, **kwargs)
         except exceptions as e:
             if attempt == retries:
-                logger.exception(f"Последняя неудачная попытка {getattr(func, '__name__', func)}: {e}")
+                logger.exception(
+                    f"Последняя неудачная попытка {getattr(func, '__name__', func)}: {e}"
+                )
                 raise
-            wait = (backoff ** attempt) + random.uniform(0, jitter)
+            wait = (backoff**attempt) + random.uniform(0, jitter)
             logger.warning(
                 f"Ошибка в {getattr(func, '__name__', func)}: {e} | попытка {attempt}/{retries} — "
                 f"повтор через {wait:.1f}s"

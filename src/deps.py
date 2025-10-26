@@ -4,6 +4,7 @@ from langgraph_sdk import get_client
 
 from .settings import settings
 
+
 @asynccontextmanager
 async def langgraph_client():
     client = get_client(url=settings.langgraph_url)

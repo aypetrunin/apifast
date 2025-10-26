@@ -1,4 +1,7 @@
-
+deactivate
+cd /home/copilot_superuser/petrunin/zena/apifast
+source .venv/bin/activate
+python -c "import sys; print(sys.executable)"
 
 
 # 1.Фиксация версии Python для проекта
@@ -39,5 +42,5 @@ uv add --dev pytest
 uv tree
 
 # 9. Просмотр логов в живую
-docker logs -f zena_mcp
-docker logs --tail 100 zena_mcp
+docker logs -f zena_apifast
+docker logs --tail 100 zena_apifast
