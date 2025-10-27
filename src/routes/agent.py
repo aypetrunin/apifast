@@ -15,10 +15,8 @@ from ..requests.httpservice import sent_message_to_history
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
-
 class PayloadError(ValueError):
     pass
-
 
 def build_messages_and_context(
     params: "AgentRunParams",

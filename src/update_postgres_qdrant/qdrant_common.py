@@ -15,6 +15,7 @@ from ..common import logger
 
 # -------------------- Config --------------------
 # Конфигурация для OpenAI, Qdrant и Postgres
+OPENAI_API_KEY = settings.openai_api_key
 OPENAI_PROXY = settings.openai_proxy_url  # Прокси для OpenAI (если нужен)
 OPENAI_TIMEOUT = settings.openai_timeout  # Таймаут запросов к OpenAI
 QDRANT_URL = settings.qdrant_url  # URL Qdrant
@@ -31,11 +32,19 @@ bm25_embedding_model = Bm25("Qdrant/bm25", language="russian")
 
 # Асинхронный клиент OpenAI с использованием httpx
 openai_client = AsyncOpenAI(
-    http_client=httpx.AsyncClient(proxy=OPENAI_PROXY, timeout=OPENAI_TIMEOUT)
+    api_key=OPENAI_API_KEY,
+    http_client=httpx.AsyncClient(
+        proxy=OPENAI_PROXY,
+        timeout=OPENAI_TIMEOUT
+    )
 )
 
 # Асинхронный клиент Qdrant для работы с векторной базой данных
-qdrant_client = AsyncQdrantClient(QDRANT_URL, timeout=QDRANT_TIMEOUT)
+qdrant_client = AsyncQdrantClient(
+    QDRANT_URL,
+    timeout=QDRANT_TIMEOUT,
+    check_compatibility=False
+)
 
 # -------------------- Retry helper --------------------
 # Универсальная функция с повторной попыткой для асинхронных/синхронных функций

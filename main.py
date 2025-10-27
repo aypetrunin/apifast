@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from src.settings import settings
 from src.routes.agent import router as agent_router
 from src.routes.health import router as health_router
+from src.routes.faq_update import router as faq_update
 
 
 logger = logging.getLogger("app")
@@ -37,4 +38,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(agent_router)
+app.include_router(faq_update)
 app.include_router(health_router)

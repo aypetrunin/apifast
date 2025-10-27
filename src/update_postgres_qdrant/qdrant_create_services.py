@@ -5,21 +5,22 @@ from qdrant_client import models  # Модели и структуры для р
 
 # Импорт функции для поиска FAQ по гибридной модели
 from .qdrant_retriever_faq_services import retriver_hybrid_async
+from ..settings import settings
+from ..common import logger
 
 # Импорт общих клиентов и функций из модуля zena_qdrant
 from .qdrant_common import (
-    POSTGRES_CONFIG,       # Конфигурация подключения к Postgres
     bm25_embedding_model,  # Sparse BM25 embedding
     ada_embeddings,        # Dense embedding через OpenAI
     qdrant_client,         # Асинхронный клиент Qdrant
     reset_collection,      # Сброс/создание коллекции
     batch_iterable,        # Разбивка данных на батчи
     retry_request,         # Retry helper для надежной загрузки
-    logger                 # Логгер
 )
 
 # Название коллекции Qdrant для сервисов
-QDRANT_COLLECTION = "zena2_services_2"
+QDRANT_COLLECTION = settings.qdrant_collection_services
+POSTGRES_CONFIG = settings.postgres_config
 
 # -------------------- Загрузка сервисов из Postgres --------------------
 async def services_load_from_postgres(channel_id: int | None = None):

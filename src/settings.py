@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         return self.langgraph_url_docker if is_docker() else self.langgraph_url_no_docker
 
     qdrant_url: str
-    qdrant_timeout: str
+    qdrant_timeout: int
     qdrant_collection_faq: str
     qdrant_collection_services: str
     qdrant_collection_products: str

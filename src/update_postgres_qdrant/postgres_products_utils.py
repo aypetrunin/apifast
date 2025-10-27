@@ -3,14 +3,7 @@
 Связано с особенностями формирования названий в Юклайнс.
 """
 
-# import asyncio
 import re
-
-# import asyncpg
-
-# from ..qdrant.retriever_common import (
-#     POSTGRES_CONFIG,  # Конфигурация подключения к Postgres
-#     )
 
 # === Конфигурация ===
 settings = {
