@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y curl && \
     pip install uv && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Маркер для определения запуска в контейнере
+ENV IS_DOCKER=1
+
 # Копируем проект
 COPY . .
 

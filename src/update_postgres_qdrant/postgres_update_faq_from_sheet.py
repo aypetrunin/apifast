@@ -1,10 +1,11 @@
+"""Модуль обновления таблицы faq в postgres из GoogleSheet."""
+
 import asyncio
-
 import asyncpg
-from zena_qdrant.postgres.google_sheet_reader import UniversalGoogleSheetReader
-from zena_qdrant.qdrant.qdrant_common import POSTGRES_CONFIG, logger
 
-QDRANT_COLLECTION_SERVICES = "zena2_services_key"
+from .google_sheet_reader import UniversalGoogleSheetReader
+from ..common import logger
+from ..settings import settings
 
 
 async def update_faq_from_sheet(channel_id: int, sheet_name: str = "faq") -> bool:
@@ -19,7 +20,7 @@ async def update_faq_from_sheet(channel_id: int, sheet_name: str = "faq") -> boo
     6. Логгирует этапы и возвращает True в случае успеха или False при ошибке.
     """
     logger.info(f"Начало обновления FAQ для channel_id={channel_id}")
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)  # Подключение к БД PostgreSQL
+    conn = await asyncpg.connect(**settings.postgres_config)  # Подключение к БД PostgreSQL
 
     try:
         # Получение URL таблицы Google Sheets для данного канала
@@ -130,11 +131,11 @@ def _build_insert_tuples(faqs_filtered: list[dict], channel_id: int) -> list[tup
 
 
 if __name__ == "__main__":
-    # Пример запуска функции обновления FAQ для канала с id=1
-    result = asyncio.run(update_faq_from_sheet(2))
-    print(result)
+    """Тест запуска функции обновления FAQ для канала с id=1."""
+    result = asyncio.run(update_faq_from_sheet(1))
+    logger.info(f"Результат обновления: {result}")
 
 
-# Запуск
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.postgres.update_faq_from_sheet
+# Запуск для проверки
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update_postgres_qdrant.update_faq_from_sheet

@@ -1,14 +1,16 @@
-import asyncio
 
+
+import asyncio
 import asyncpg
-from ..qdrant.retriever_common import POSTGRES_CONFIG, logger
+
+from ..common import  logger
 from zena_qdrant.qdrant.qdrant_create_services import qdrant_create_services_async
 from zena_qdrant.qdrant.qdrant_retriver_faq_services import retriver_hybrid_async
 
 QDRANT_COLLECTION_SERVICES = "zena2_services_key"
 
 
-async def update_products_services(
+async def update_products_services( 
     channel_id: int,
     collection_name: str,
     qdrant_create_services: bool = True,

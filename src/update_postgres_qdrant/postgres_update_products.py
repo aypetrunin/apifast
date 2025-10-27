@@ -1,12 +1,19 @@
-import asyncio
+"""Модуль обновления двух полей product_full_name, product_unid_ean на основе других полей.
+Запускается после обновления таблицы products из CRM.
+ """
 
+import asyncio
 import asyncpg
-from zena_qdrant.postgres.products_utils import classify, sanitize_name
-from zena_qdrant.qdrant.qdrant_common import POSTGRES_CONFIG, logger
+
+from ..common import logger
+from ..settings import settings
+from .postgres_products_utils import classify, sanitize_name
 
 
 async def update_products(channel_id: int):
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)
+    """Функция обновления полей product_full_name, product_unid_ean.
+    """
+    conn = await asyncpg.connect(**settings.postgres_config)
     try:
         if channel_id == 1:
             result = await _update_products_channel1(conn, channel_id)
@@ -21,7 +28,7 @@ async def update_products(channel_id: int):
 
 
 async def _update_products_channel1(conn, channel_id: int):
-    """Обновление продуктов для София (channel_id=1)
+    """Обновление продуктов для София (channel_id=1).
     """
     result = await conn.execute(
         """
@@ -68,7 +75,9 @@ async def _update_products_channel2(conn, channel_id: int):
 
 
 if __name__ == "__main__":
+    """Тест запуска функции обновления FAQ для канала с id=1."""
     asyncio.run(update_products(1))
 
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.postgres.update_products
+# Запуск для проверки
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update_postgres_qdrant.update_products

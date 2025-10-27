@@ -1,8 +1,11 @@
-import asyncio
+"""Модуль обновления таблицы services в postgres из GoogleSheet."""
 
+import asyncio
 import asyncpg
-from zena_qdrant.postgres.google_sheet_reader import UniversalGoogleSheetReader
-from zena_qdrant.qdrant.qdrant_common import POSTGRES_CONFIG, logger
+
+from .google_sheet_reader import UniversalGoogleSheetReader
+from ..common import logger
+from ..settings import settings
 
 
 async def update_services_from_sheet(
@@ -20,7 +23,7 @@ async def update_services_from_sheet(
     """
     logger.info(f"Начало обновления Services для channel_id={channel_id}")
 
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)
+    conn = await asyncpg.connect(**settings.postgres_config)
     try:
         # Получение URL Google Sheet для канала
         channel_row = await conn.fetchrow(
@@ -124,8 +127,10 @@ def _clean_service_row(row: dict, channel_id: int) -> tuple:
 
 
 if __name__ == "__main__":
+    """Тест запуска функции обновления services для канала с id=1."""
     result = asyncio.run(update_services_from_sheet(1))
 
 
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.postgres.update_services_from_sheet
+# Запуск для проверки
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update_postgres_qdrant.update_services_from_sheet

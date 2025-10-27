@@ -3,6 +3,7 @@ cd /home/copilot_superuser/petrunin/zena/apifast
 source .venv/bin/activate
 python -c "import sys; print(sys.executable)"
 
+/home/copilot_superuser/petrunin/zena/apifast/.venv/bin/python
 
 # 1.Фиксация версии Python для проекта
 # переходим в рабочий каталог и выполняем команду
@@ -44,3 +45,9 @@ uv tree
 # 9. Просмотр логов в живую
 docker logs -f zena_apifast
 docker logs --tail 100 zena_apifast
+
+# Запуск FastAPI
+deactivate
+cd /home/copilot_superuser/petrunin/zena/apifast
+source .venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 3024

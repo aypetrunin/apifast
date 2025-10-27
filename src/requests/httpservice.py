@@ -4,7 +4,7 @@ import asyncio
 
 from typing_extensions import Any, Awaitable, Callable, TypeVar
 
-from ..settings import logger
+from ..common import logger
 
 T = TypeVar("T")
 

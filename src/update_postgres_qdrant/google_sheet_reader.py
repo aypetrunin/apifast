@@ -1,9 +1,11 @@
+"""Модуль реализует универсальный класс чтения из GoogleSheet по URL."""
+
 import asyncio
 import os
-
 import gspread
 import gspread.exceptions
-from zena_qdrant.qdrant.qdrant_common import logger, retry_request
+
+from ..common import retry_async, logger
 
 SERVICE_ACCOUNT_FILE = os.path.join(
     os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
@@ -25,11 +27,12 @@ class UniversalGoogleSheetReader:
         self.sheet_name = sheet_name
         self.service_account_file = service_account_file
 
+    @retry_async()
     async def _init_google_client(self):
         """Асинхронный метод инициализации Google Sheets API клиента
         с использованием retry_request для повторных попыток в случае ошибок.
         """
-        await retry_request(self._real_init)
+        await self._real_init()
 
     async def _real_init(self):
         """Внутренняя асинхронная инициализация:
@@ -73,12 +76,13 @@ class UniversalGoogleSheetReader:
             logger.error(f"Неожиданная ошибка при чтении данных из  Google Sheet: {e}")
             return []
 
+    @retry_async()
     async def get_all_rows(self) -> list[dict]:
         """Синхронный метод для получения всех строк.
         Запускает асинхронный метод _get_all_rows_async с retry_request
         через asyncio.run, чтобы из синхронного кода получить результат.
         """
-        return await retry_request(self._get_all_rows_async)
+        return await self._get_all_rows_async()
 
     @classmethod
     async def create(
@@ -90,33 +94,3 @@ class UniversalGoogleSheetReader:
         self = cls(spreadsheet_url, sheet_name, service_account_file)
         await self._init_google_client()
         return self
-
-
-# Использование:
-# reader = await UniversalGoogleSheetReader.create(url, sheet)
-# rows = await reader.get_all_rows()
-
-
-# class UniversalGoogleSheetReader:
-#     def __init__(
-#             self,
-#             spreadsheet_url: str,
-#             sheet_name: str,
-#             service_account_file: str = SERVICE_ACCOUNT_FILE,
-#     ):
-#         try:
-#             self.gc = gspread.service_account(service_account_file)
-#             self.sh = self.gc.open_by_url(spreadsheet_url)
-#             self.ws = self.sh.worksheet(sheet_name)
-#             self.headers = self.ws.row_values(1)
-#         except Exception as e:
-#             logger.error(f"Ошибка инициализации GoogleSheetReader: {e}")
-#             raise
-
-#     def get_all_rows(self) -> list[dict]:
-#         try:
-#             rows = self.ws.get_all_values()[1:]
-#             return [dict(zip(self.headers, row)) for row in rows]
-#         except Exception as e:
-#             logger.error(f"Ошибка чтения данных из Google Sheet: {e}")
-#             return []

@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 
 from ..deps import langgraph_client
 from ..schemas import AgentRunParams
-from ..settings import logger
+from ..common import logger
 from ..requests.httpservice import sent_message_to_history
 
 
@@ -75,9 +75,6 @@ async def run_sync(params: AgentRunParams):
             )
             t2 = time.perf_counter()
 
-        # print("____final_state____")
-        # print(final_state)
-
         msgs = final_state.get("messages")
         text = msgs[-1]["content"] if isinstance(msgs, list) and msgs else ""
         payload = {
@@ -114,7 +111,9 @@ async def run_sync(params: AgentRunParams):
         t3 = time.perf_counter()
         try:
             t_save0 = time.perf_counter()
+            logger.info(f"--AI--: {payload.get('text')[:50]} .....")
             await sent_message_to_history(**payload)
+
             t_save1 = time.perf_counter()
             tok = (context or {}).get("_access_token")
             tok_mask = f"{tok[:5]}" if tok else "NA"
@@ -126,12 +125,12 @@ async def run_sync(params: AgentRunParams):
             d_exec = (t2 - t1) if (t2 is not None and t1 is not None) else 0.0
             d_save = (
                 t_save1 - t_save0
-            )  # замените на (t_save1 - t_save0), когда включите запись # t3 - base
+            )
             d_all = t3 - t0
 
             if info == "--OK--":
                 logger.info(
-                    f"{info}. agent({tok_mask}) - build:{d_build:.3f}s, create:{d_create:.3f}s, exec:{d_exec:.3f}s, save:{d_save:.3f}s, all:{d_all:.3f}s"
+                    f"{info}: agent({tok_mask}) - build:{d_build:.3f}s, create:{d_create:.3f}s, exec:{d_exec:.3f}s, save:{d_save:.3f}s, all:{d_all:.3f}s"
                 )
             else:
                 logger.error(f"{info}. {success_response['exception']}")
