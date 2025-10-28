@@ -1,4 +1,5 @@
-import os
+"""Модуль реализует ретриверы по коллекциям 'faq', 'srvices', 'zena2_services_key'-вспомогательной коллекции."""
+
 import asyncio
 
 from qdrant_client import models
@@ -6,10 +7,10 @@ from qdrant_client import models
 from ..common import logger
 from ..settings import settings
 from .qdrant_common import (
-    qdrant_client,         # Асинхронный клиент Qdrant
-    ada_embeddings,        # Функция генерации dense-векторов OpenAI (Ada)
+    ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
-    retry_request,         # Обёртка для надёжного выполнения с повторными попытками
+    qdrant_client,  # Асинхронный клиент Qdrant
+    retry_request,  # Обёртка для надёжного выполнения с повторными попытками
 )
 
 # ===============================================================
@@ -17,26 +18,26 @@ from .qdrant_common import (
 # ===============================================================
 QDRANT_COLLECTION_FAQ = settings.qdrant_collection_faq
 QDRANT_COLLECTION_SERVICES = settings.qdrant_collection_services
-
+QDRANT_COLLECTION_TEMP = settings.qdrant_collection_temp
 # ---------------------------------------------------------------
 # 📦 Маппинг полей для каждой коллекции
 # ---------------------------------------------------------------
 DATABASE_FIELDS = {
     QDRANT_COLLECTION_FAQ: [
-        "question",        # Текст вопроса
-        "answer"           # Текст ответа
+        "question",  # Текст вопроса
+        "answer",  # Текст ответа
     ],
     QDRANT_COLLECTION_SERVICES: [
-        "services_name",               # Название услуги
-        "body_parts",                  # Части тела, на которые воздействует услуга
-        "description",                 # Описание услуги
-        "contraindications",           # Противопоказания
-        "indications",                 # Показания
-        "pre_session_instructions"     # Инструкции перед сеансом
+        "services_name",  # Название услуги
+        "body_parts",  # Части тела, на которые воздействует услуга
+        "description",  # Описание услуги
+        "contraindications",  # Противопоказания
+        "indications",  # Показания
+        "pre_session_instructions",  # Инструкции перед сеансом
     ],
-    'zena2_services_key': [
-        "id",        # Текст вопроса
-        "services_name"           # Текст ответа
+    QDRANT_COLLECTION_TEMP: [
+        "id",  # Текст вопроса
+        "services_name",  # Текст ответа
     ],
 }
 
@@ -45,11 +46,9 @@ DATABASE_FIELDS = {
 # 🔄 Преобразование точек (результатов Qdrant) в словари
 # ===============================================================
 async def points_to_dict(
-        points: list[models.PointStruct],
-        database_name: str
+    points: list[models.PointStruct], database_name: str
 ) -> list[dict]:
-    """
-    Преобразует список объектов Qdrant (PointStruct) в список словарей с данными из payload.
+    """Преобразует список объектов Qdrant (PointStruct) в список словарей с данными из payload.
 
     Аргументы:
         points: список точек из результата запроса Qdrant
@@ -75,10 +74,9 @@ async def retriver_hybrid_async(
     database_name: str,
     channel_id: int | None = None,
     hybrid: bool = True,
-    limit: int = 5
+    limit: int = 5,
 ) -> list[dict]:
-    """
-    Асинхронный поиск в Qdrant.
+    """Асинхронный поиск в Qdrant.
 
     Асинхронный поиск в Qdrant с поддержкой:
       • dense-векторов (OpenAI Ada)
@@ -98,8 +96,7 @@ async def retriver_hybrid_async(
     """
 
     async def _retriever_logic():
-        """Логика ретривера.
-        """
+        """Логика ретривера."""
         # -------------------------------------------------------
         # 1️⃣ Генерация dense-вектора через OpenAI Ada
         # -------------------------------------------------------
@@ -119,8 +116,7 @@ async def retriver_hybrid_async(
             query_filter = models.Filter(
                 must=[
                     models.FieldCondition(
-                        key="channel_id",
-                        match=models.MatchValue(value=channel_id)
+                        key="channel_id", match=models.MatchValue(value=channel_id)
                     )
                 ]
             )
@@ -135,16 +131,18 @@ async def retriver_hybrid_async(
                 models.Prefetch(
                     query=models.SparseVector(**query_bm25.as_object()),
                     using="bm25",
-                    limit=limit
-                )
+                    limit=limit,
+                ),
             ]
             response = await qdrant_client.query_points(
                 collection_name=database_name,
                 prefetch=prefetch,
-                query=models.FusionQuery(fusion=models.Fusion.RRF),  # Reciprocal Rank Fusion
+                query=models.FusionQuery(
+                    fusion=models.Fusion.RRF
+                ),  # Reciprocal Rank Fusion
                 query_filter=query_filter,
                 with_payload=True,
-                limit=limit
+                limit=limit,
             )
         else:
             # --- Обычный dense-поиск (только Ada) ---
@@ -154,7 +152,7 @@ async def retriver_hybrid_async(
                 using="ada-embedding",
                 query_filter=query_filter,
                 with_payload=True,
-                limit=limit
+                limit=limit,
             )
 
         # -------------------------------------------------------
@@ -172,27 +170,23 @@ async def retriver_hybrid_async(
 # 🧪 Тестовый запуск для проверки работы retriever
 # ===============================================================
 if __name__ == "__main__":
+
     async def main():
-        """
-        Тестовый пример поиска в двух коллекциях Qdrant.
-        
+        """Тестовый пример поиска в двух коллекциях Qdrant.
+
         1. FAQ — поиск по тексту вопроса/ответа
         2. Services — поиск по услугам с фильтрацией по каналу
         """
         # --- Поиск по базе FAQ ---
         results_faq = await retriver_hybrid_async(
-            query="Абонент",
-            database_name=QDRANT_COLLECTION_FAQ,
-            channel_id=2
+            query="Абонент", database_name=QDRANT_COLLECTION_FAQ, channel_id=2
         )
         logger.info("📘 FAQ results:")
         logger.info(results_faq)
 
         # --- Поиск по базе услуг ---
         results_services = await retriver_hybrid_async(
-            query="Тейпирование",
-            database_name=QDRANT_COLLECTION_SERVICES,
-            channel_id=2
+            query="Тейпирование", database_name=QDRANT_COLLECTION_SERVICES, channel_id=2
         )
         logger.info("💆 Services results:")
         logger.info(results_services)
@@ -200,7 +194,6 @@ if __name__ == "__main__":
     # Запускаем асинхронный тест
     asyncio.run(main())
 
- 
 
 # cd /home/copilot_superuser/petrunin/mcp
 #  uv run python -m zena_qdrant.qdrant.qdrant_retriver_faq_services

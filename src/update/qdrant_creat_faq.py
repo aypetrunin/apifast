@@ -1,6 +1,6 @@
 """Модуль в котором создается в векторной базе Qdrant коллекция по FAQ.
-Коллекция создается на основе таблицы faq в Postgres.
 
+Коллекция создается на основе таблицы faq в Postgres.
 Порядок действий:
 1. Загружает сервисы из Postgres
 2. Сбрасывает/создает коллекцию Qdrant
@@ -11,25 +11,26 @@
 """
 
 import asyncio
-import asyncpg  # Асинхронный клиент для PostgreSQL
-from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
-from qdrant_client import models  # Модели для работы с точками Qdrant
 
-# Импорт функции для поиска FAQ по гибридной модели
-from .qdrant_retriever_faq_services import retriver_hybrid_async
-from ..settings import settings
+import asyncpg  # Асинхронный клиент для PostgreSQL
+from qdrant_client import models  # Модели для работы с точками Qdrant
+from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
+
 from ..common import logger
+from ..settings import settings
 
 # Импорт общих клиентов и функций из модуля zena_qdrant
 from .qdrant_common import (
-    POSTGRES_CONFIG,       # Конфигурация подключения к Postgres
+    ada_embeddings,  # Dense embedding через OpenAI
+    batch_iterable,  # Разбивка данных на батчи
     bm25_embedding_model,  # Sparse BM25 embedding
-    ada_embeddings,        # Dense embedding через OpenAI
-    qdrant_client,         # Асинхронный клиент Qdrant
-    reset_collection,      # Сброс/создание коллекции
-    batch_iterable,        # Разбивка данных на батчи
-    retry_request,         # Retry helper для надежной загрузки
+    qdrant_client,  # Асинхронный клиент Qdrant
+    reset_collection,  # Сброс/создание коллекции
+    retry_request,  # Retry helper для надежной загрузки
 )
+
+# Импорт функции для поиска FAQ по гибридной модели
+from .qdrant_retriever_faq_services import retriver_hybrid_async
 
 # Название коллекции в Qdrant
 QDRANT_COLLECTION = settings.qdrant_collection_faq
@@ -38,8 +39,8 @@ POSTGRES_CONFIG = settings.postgres_config
 
 # -------------------- Главная асинхронная функция --------------------
 async def qdrant_create_faq_async():
-    """
-    Главная функция для создания коллекции FAQ в Qdrant:
+    """Главная функция для создания коллекции FAQ в Qdrant.
+
     1. Загружает FAQ из Postgres
     2. Создаёт/сбрасывает коллекцию Qdrant
     3. Загружает FAQ в коллекцию
@@ -67,23 +68,26 @@ async def qdrant_create_faq_async():
 
 # -------------------- Загрузка FAQ из Postgres --------------------
 async def faq_load_from_postgres():
-    """
-    Загружает все записи FAQ из таблицы 'faq' в Postgres.
+    """Загружает все записи FAQ из таблицы 'faq' в Postgres.
+
     Возвращает список словарей с ключами:
     channel_id, id, topic, question, answer
     """
     conn = await asyncpg.connect(**POSTGRES_CONFIG)  # Подключение к БД
     try:
-        rows = await conn.fetch("SELECT channel_id, id, topic, question, answer FROM faq")
+        rows = await conn.fetch(
+            "SELECT channel_id, id, topic, question, answer FROM faq"
+        )
         # Преобразуем строки в список словарей
         return [dict(r) for r in rows]
     finally:
         await conn.close()  # Закрываем соединение
 
+
 # -------------------- Загрузка FAQ в Qdrant --------------------
 async def fill_collection_faq(docs, collection_name, batch_size=64):
-    """
-    Загружает FAQ в коллекцию Qdrant.
+    """Загружает FAQ в коллекцию Qdrant.
+
     Для каждой записи создаются два типа эмбеддингов:
         - BM25 (sparse)
         - OpenAI ADA (dense)
@@ -114,19 +118,17 @@ async def fill_collection_faq(docs, collection_name, batch_size=64):
             models.PointStruct(
                 id=int(d["id"]),  # Используем id из БД как идентификатор точки
                 vector={
-                    "ada-embedding": ada_emb[i],        # Dense вектор
-                    "bm25": bm25_emb[i].as_object()    # Sparse вектор
+                    "ada-embedding": ada_emb[i],  # Dense вектор
+                    "bm25": bm25_emb[i].as_object(),  # Sparse вектор
                 },
-                payload=d  # Сохраняем всю запись как payload
+                payload=d,  # Сохраняем всю запись как payload
             )
             for i, d in enumerate(filtered)
         ]
 
         # Загружаем точки в коллекцию с retry для надёжности
         await retry_request(
-            qdrant_client.upload_points,
-            collection_name=collection_name,
-            points=points
+            qdrant_client.upload_points, collection_name=collection_name, points=points
         )
 
 

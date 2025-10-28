@@ -3,6 +3,7 @@ cd /home/copilot_superuser/petrunin/zena/apifast
 source .venv/bin/activate
 python -c "import sys; print(sys.executable)"
 
+# Путь к интерпритатору.
 /home/copilot_superuser/petrunin/zena/apifast/.venv/bin/python
 
 # 1.Фиксация версии Python для проекта

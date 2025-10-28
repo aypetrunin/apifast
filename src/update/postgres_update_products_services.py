@@ -1,9 +1,10 @@
-
+"""Модуль реализует обновление таблицы products_services."""
 
 import asyncio
+
 import asyncpg
 
-from ..common import  logger
+from ..common import logger
 from ..settings import settings
 from .qdrant_create_services import qdrant_create_services_async
 from .qdrant_retriever_faq_services import retriver_hybrid_async
@@ -11,8 +12,8 @@ from .qdrant_retriever_faq_services import retriver_hybrid_async
 QDRANT_COLLECTION_TEMP = settings.qdrant_collection_temp
 POSTGRES_CONFIG = settings.postgres_config
 
-async def update_products_services( 
-    channel_id: int, 
+async def update_products_services(
+    channel_id: int,
     collection_name: str = QDRANT_COLLECTION_TEMP,
     qdrant_create_services: bool = True,
     max_parallel: int = 10,
@@ -94,6 +95,7 @@ async def _fetch_service_id(
     product: dict, channel_id: int, semaphore: asyncio.Semaphore
 ) -> tuple | None:
     """Получает service_id для данного продукта из векторной базы Qdrant.
+
     Использует semaphore для ограничения количества параллельных запросов.
 
     :param product: словарь с информацией о продукте (product_name, article)

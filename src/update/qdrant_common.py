@@ -1,17 +1,17 @@
 """Модуль общих функций для работы с qdrant."""
 
 import asyncio
-import random
 import inspect
-import httpx
+import random
+from typing import Awaitable, Callable
 
-from typing import Callable, Awaitable
+import httpx
 from fastembed.sparse.bm25 import Bm25
 from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient, models
 
-from ..settings import settings
 from ..common import logger
+from ..settings import settings
 
 # -------------------- Config --------------------
 # Конфигурация для OpenAI, Qdrant и Postgres
@@ -33,18 +33,14 @@ bm25_embedding_model = Bm25("Qdrant/bm25", language="russian")
 # Асинхронный клиент OpenAI с использованием httpx
 openai_client = AsyncOpenAI(
     api_key=OPENAI_API_KEY,
-    http_client=httpx.AsyncClient(
-        proxy=OPENAI_PROXY,
-        timeout=OPENAI_TIMEOUT
-    )
+    http_client=httpx.AsyncClient(proxy=OPENAI_PROXY, timeout=OPENAI_TIMEOUT),
 )
 
 # Асинхронный клиент Qdrant для работы с векторной базой данных
 qdrant_client = AsyncQdrantClient(
-    QDRANT_URL,
-    timeout=QDRANT_TIMEOUT,
-    check_compatibility=False
+    QDRANT_URL, timeout=QDRANT_TIMEOUT, check_compatibility=False
 )
+
 
 # -------------------- Retry helper --------------------
 # Универсальная функция с повторной попыткой для асинхронных/синхронных функций
@@ -53,10 +49,9 @@ async def retry_request(
     *args,
     retries: int = 3,  # количество попыток
     backoff: float = 2.0,  # коэффициент экспоненциального backoff
-    **kwargs
+    **kwargs,
 ):
-    """Универсальная функция с повторной попыткой для асинхронных/синхронных функций.
-    """
+    """Универсальная функция с повторной попыткой для асинхронных/синхронных функций."""
     for attempt in range(1, retries + 1):
         try:
             # Проверяем, является ли функция асинхронной
@@ -69,25 +64,27 @@ async def retry_request(
                 logger.exception(f"Последняя неудачная попытка {func.__name__}: {e}")
                 raise
             # Вычисляем время ожидания с небольшой случайной погрешностью
-            wait = backoff ** attempt + random.uniform(0, 1)
+            wait = backoff**attempt + random.uniform(0, 1)
             logger.warning(
                 f"Ошибка в {func.__name__}: {e} | попытка {attempt}/{retries} — повтор через {wait:.1f}s"
             )
             await asyncio.sleep(wait)
 
+
 # -------------------- Batch helper --------------------
 # Генератор для разбиения любого итерируемого объекта на батчи заданного размера
 def batch_iterable(iterable, size: int):
-    """Генератор для разбиения любого итерируемого объекта на батчи заданного размера.
-    """
+    """Генератор для разбиения любого итерируемого объекта на батчи заданного размера."""
     for i in range(0, len(iterable), size):
-        yield iterable[i:i + size]
+        yield iterable[i : i + size]
+
 
 # -------------------- Embeddings --------------------
 # Асинхронная функция для получения векторных представлений текстов
-async def embed_texts(texts: list[str], model: str, dimensions: int | None = None) -> list[list[float]]:
-    """Асинхронная функция для получения векторных представлений текстов.
-    """
+async def embed_texts(
+    texts: list[str], model: str, dimensions: int | None = None
+) -> list[list[float]]:
+    """Асинхронная функция для получения векторных представлений текстов."""
     # Убираем пустые строки и заменяем переносы строк на пробелы
     texts = [t.replace("\n", " ") for t in texts if t and t.strip()]
     if not texts:
@@ -97,21 +94,26 @@ async def embed_texts(texts: list[str], model: str, dimensions: int | None = Non
         openai_client.embeddings.create,
         input=texts,
         model=model,
-        **({"dimensions": dimensions} if dimensions else {})  # передаем размерность, если указана
+        **(
+            {"dimensions": dimensions} if dimensions else {}
+        ),  # передаем размерность, если указана
     )
     # Возвращаем список векторов
     return [item.embedding for item in response.data]
 
+
 # Обертка для стандартной модели ada
 async def ada_embeddings(texts: list[str], model: str = "text-embedding-ada-002"):
+    """Обертка для стандартной модели ada."""
     return await embed_texts(texts, model=model)
+
 
 # -------------------- Reset collection --------------------
 # Функция для удаления и создания коллекции в Qdrant с настройкой векторов и индексов
 async def reset_collection(
     client: AsyncQdrantClient,
     collection_name: str,
-    text_index_fields: list[str] = None  # поля для текстового поиска
+    text_index_fields: list[str] = None,  # поля для текстового поиска
 ):
     """Функция для удаления и создания коллекции в Qdrant с настройкой векторов и индексов."""
     try:
@@ -159,6 +161,6 @@ async def reset_collection(
             await client.create_payload_index(
                 collection_name=collection_name,
                 field_name=field,
-                field_schema=models.TextIndexParams(**default_text_index_params)
+                field_schema=models.TextIndexParams(**default_text_index_params),
             )
             logger.info(f'Индекс "{field}" создан.')

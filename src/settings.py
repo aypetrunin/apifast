@@ -1,12 +1,18 @@
 """Модуль определения переменных проекта."""
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 def is_docker() -> bool:
-    import os
+    """Функция определят запущен код в докерк или нет."""
     return str(os.getenv("IS_DOCKER", "0")).lower() in ("1", "true", "yes")
 
+
 class Settings(BaseSettings):
+    """Опреление системных переменных."""
+    
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     cors_origins: list[str] = ["*"]
@@ -16,7 +22,10 @@ class Settings(BaseSettings):
 
     @property
     def langgraph_url(self) -> str:
-        return self.langgraph_url_docker if is_docker() else self.langgraph_url_no_docker
+        """Определение свойства."""
+        return (
+            self.langgraph_url_docker if is_docker() else self.langgraph_url_no_docker
+        )
 
     qdrant_url: str
     qdrant_timeout: int
@@ -25,7 +34,7 @@ class Settings(BaseSettings):
     qdrant_collection_products: str
     qdrant_collection_temp: str
 
-    openai_api_key:str
+    openai_api_key: str
     openai_proxy_url: str
     openai_timeout: int
 
@@ -37,6 +46,7 @@ class Settings(BaseSettings):
 
     @property
     def postgres_config(self) -> dict:
+        """Определение свойства."""
         return {
             "user": self.postgres_user,
             "password": self.postgres_password,
@@ -44,5 +54,6 @@ class Settings(BaseSettings):
             "host": self.postgres_host,
             "port": self.postgres_port,
         }
+
 
 settings = Settings()

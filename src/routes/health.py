@@ -1,4 +1,5 @@
-# fastapi_app/routes/health.py
+"""Модуль реализует endpoint health/ok. Проверка работы langgraph-api."""
+
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
@@ -9,6 +10,7 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 @router.get("/ok")
 async def ok(check_db: int = Query(0, ge=0, le=1)):
+    """Проверка работы langgraph-api."""
     url = f"{settings.langgraph_url.rstrip('/')}/ok"
     params = {"check_db": check_db}
     try:

@@ -1,11 +1,12 @@
 """Модуль обновления таблицы services в postgres из GoogleSheet."""
 
 import asyncio
+
 import asyncpg
 
-from .google_sheet_reader import UniversalGoogleSheetReader
 from ..common import logger
 from ..settings import settings
+from .google_sheet_reader import UniversalGoogleSheetReader
 
 
 async def update_services_from_sheet(
@@ -99,7 +100,9 @@ async def update_services_from_sheet(
 
 
 def _clean_service_row(row: dict, channel_id: int) -> tuple:
-    """Обрабатывает и очищает данные строки из Google Sheets для вставки в таблицу services.
+    """Обработка строк Google Sheets.
+
+    Обрабатывает и очищает данные строки из Google Sheets для вставки в таблицу services.
     Очищает и формирует необходимые поля, убирает переносы строк из некоторых ключей.
 
     :param row: исходная строка из Google Sheets в виде словаря

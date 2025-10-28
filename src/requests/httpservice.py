@@ -1,7 +1,9 @@
-import aiohttp
-import random
-import asyncio
+"""Функции для работы с API httpservice.ai2b.pro."""
 
+import asyncio
+import random
+
+import aiohttp
 from typing_extensions import Any, Awaitable, Callable, TypeVar
 
 from ..common import logger
@@ -24,6 +26,7 @@ async def sent_message_to_history(
     dialog_state: str,
     dialog_state_new: str,
 ) -> dict:
+    """Отправка переменных на endpoint для сохранения с повтором при ошибках."""
     return await retry_async(
         _sent_message_to_history,
         user_id,
@@ -57,6 +60,7 @@ async def _sent_message_to_history(
     dialog_state: str,
     dialog_state_new: str,
 ) -> dict:
+    """Отправка переменных на endpoint для сохранения."""
     url = "https://httpservice.ai2b.pro/v1/telegram/n8n/outgoing"
     payload = {
         "user_id": user_id,
@@ -105,8 +109,8 @@ async def retry_async(
     exceptions: tuple[type[Exception], ...] = (Exception,),
     **kwargs: Any,
 ) -> T:
-    """
-    Асинхронные ретраи с экспоненциальным бэкоффом и равномерным джиттером.
+    """Асинхронные ретраи с экспоненциальным бэкоффом и равномерным джиттером.
+
     - func: async-функция, которую ретраим
     - retries: общее число попыток
     - backoff: базовый коэффициент экспоненты (например, 2.0 => 2^attempt)

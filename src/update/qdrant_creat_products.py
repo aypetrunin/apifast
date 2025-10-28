@@ -1,32 +1,40 @@
+"""Модуль реализует процесс создания коллекции для поиска услуг/продуктов."""
+
 import asyncio
+
 import asyncpg  # Асинхронный клиент для PostgreSQL
-from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар
 from qdrant_client import models  # Модели для работы с Qdrant
+from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар
 
 from ..common import logger
 from ..settings import settings
-from .qdrant_retriever_product import retriever_product_hybrid_async
 from .qdrant_common import (
+    ada_embeddings,  # Dense embeddings через OpenAI
+    batch_iterable,  # Генератор для разбивки на батчи
     bm25_embedding_model,  # BM25 sparse embedding
-    ada_embeddings,        # Dense embeddings через OpenAI
-    qdrant_client,         # Асинхронный клиент Qdrant
-    reset_collection,      # Функция сброса/создания коллекции
-    batch_iterable,        # Генератор для разбивки на батчи
-    retry_request,         # Retry helper для надёжного выполнения
+    qdrant_client,  # Асинхронный клиент Qdrant
+    reset_collection,  # Функция сброса/создания коллекции
+    retry_request,  # Retry helper для надёжного выполнения
 )
+from .qdrant_retriever_product import retriever_product_hybrid_async
 
 # Название коллекции Qdrant для продуктов и услуг
 QDRANT_COLLECTION = settings.qdrant_collection_products
 POSTGRES_CONFIG = settings.postgres_config
 
 # Поля для создания текстовых индексов в Qdrant
-TEXT_INDEX_FIELDS = ["indications_key", "contraindications_key", "body_parts", "product_type"]
+TEXT_INDEX_FIELDS = [
+    "indications_key",
+    "contraindications_key",
+    "body_parts",
+    "product_type",
+]
 
 
 # -------------------- Главная асинхронная функция --------------------
 async def qdrant_create_products_async():
-    """
-    Главная функция для создания коллекции продуктов в Qdrant:
+    """Главная функция для создания коллекции продуктов в Qdrant.
+
     1. Загружает продукты из Postgres
     2. Сбрасывает/создаёт коллекцию Qdrant с текстовыми индексами
     3. Загружает продукты в коллекцию с эмбеддингами
@@ -40,9 +48,7 @@ async def qdrant_create_products_async():
 
     # Шаг 2: Сброс и создание коллекции с текстовыми индексами
     await reset_collection(
-        qdrant_client,
-        QDRANT_COLLECTION,
-        text_index_fields=TEXT_INDEX_FIELDS
+        qdrant_client, QDRANT_COLLECTION, text_index_fields=TEXT_INDEX_FIELDS
     )
 
     # Шаг 3: Загрузка данных в коллекцию
@@ -58,8 +64,8 @@ async def qdrant_create_products_async():
 
 # -------------------- Загрузка продуктов из Postgres --------------------
 async def products_load_from_postgres():
-    """
-    Загружает все продукты и услуги из представления product_service_view в Postgres.
+    """Загружает все продукты и услуги из представления product_service_view в Postgres.
+
     Возвращает список словарей, где каждая запись содержит все колонки из представления.
     """
     conn = await asyncpg.connect(**POSTGRES_CONFIG)  # Подключение к БД
@@ -69,10 +75,11 @@ async def products_load_from_postgres():
     finally:
         await conn.close()  # Закрываем соединение
 
+
 # -------------------- Загрузка продуктов в Qdrant --------------------
 async def fill_collection_products(docs, collection_name, batch_size=64):
-    """
-    Загружает данные о продуктах в коллекцию Qdrant.
+    """Загружает данные о продуктах в коллекцию Qdrant.
+
     Для каждой записи создаются два вида эмбеддингов:
         - BM25 (sparse)
         - OpenAI ADA (dense)
@@ -81,9 +88,11 @@ async def fill_collection_products(docs, collection_name, batch_size=64):
     batch_size: размер батча для пакетной загрузки
     """
     logger.info(f"Загрузка {len(docs)} продуктов в '{collection_name}'")
-    
+
     # Разбиваем данные на батчи и отображаем прогресс
-    for batch in tqdm_asyncio(batch_iterable(docs, batch_size), desc="Products batches"):
+    for batch in tqdm_asyncio(
+        batch_iterable(docs, batch_size), desc="Products batches"
+    ):
         # Фильтруем записи без текста для поиска
         filtered = [d for d in batch if d.get("product_search", "").strip()]
         if not filtered:
@@ -103,49 +112,16 @@ async def fill_collection_products(docs, collection_name, batch_size=64):
             models.PointStruct(
                 id=int(d["id"]),  # ID точки соответствует ID продукта
                 vector={"ada-embedding": ada_emb[i], "bm25": bm25_emb[i].as_object()},
-                payload=d  # Полная запись сохраняется в payload
+                payload=d,  # Полная запись сохраняется в payload
             )
             for i, d in enumerate(filtered)
         ]
 
         # Загружаем точки в коллекцию с retry для надёжности
         await retry_request(
-            qdrant_client.upload_points,
-            collection_name=collection_name,
-            points=points
+            qdrant_client.upload_points, collection_name=collection_name, points=points
         )
 
-# -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_products_async():
-    """
-    Главная функция для создания коллекции продуктов в Qdrant:
-    1. Загружает продукты из Postgres
-    2. Сбрасывает/создаёт коллекцию Qdrant с текстовыми индексами
-    3. Загружает продукты в коллекцию с эмбеддингами
-    4. Проверяет работу поиска через retriver_product_hybrid_async
-    """
-    # Шаг 1: Загрузка данных
-    docs = await products_load_from_postgres()
-    if not docs:
-        logger.warning("Нет данных для загрузки.")
-        return False
-
-    # Шаг 2: Сброс и создание коллекции с текстовыми индексами
-    await reset_collection(
-        qdrant_client,
-        QDRANT_COLLECTION,
-        text_index_fields=TEXT_INDEX_FIELDS
-    )
-
-    # Шаг 3: Загрузка данных в коллекцию
-    await fill_collection_products(docs, QDRANT_COLLECTION)
-
-    # Шаг 4: Проверка поиска (пример запроса)
-    results = await retriever_product_hybrid_async("1", "массаж")
-    logger.info(f"Найдено результатов: {len(results)}")
-
-    # Возвращаем True, если хотя бы один результат найден
-    return bool(results)
 
 # -------------------- Запуск скрипта --------------------
 if __name__ == "__main__":

@@ -1,19 +1,19 @@
 """Модуль вспомогательных функций postgres."""
 
 import asyncio
+
 import asyncpg
 
 from ..settings import settings
 
-
 POSTGRES_CONFIG = settings.postgres_config
 
+
 async def is_channel_id(channel_id: int) -> bool:
-    """Проверка на наличие channel_id.
-    """
+    """Проверка на наличие channel_id."""
     conn = await asyncpg.connect(**POSTGRES_CONFIG)
     try:
-        result=False
+        result = False
         row: asyncpg.Record | None = await conn.fetchrow(
             """
             SELECT cc.id

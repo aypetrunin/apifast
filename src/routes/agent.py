@@ -1,26 +1,27 @@
-import json
+"""Модуль создания endpointa '/agent/run' - агента-бота."""
+
 import time
 
-from collections.abc import Mapping
-
 from fastapi import APIRouter, status
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse
 
-from ..deps import langgraph_client
-from ..schemas import AgentRunParams
 from ..common import logger
+from ..deps import langgraph_client
 from ..requests.httpservice import sent_message_to_history
-
-
+from ..schemas import AgentRunParams
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
+
 class PayloadError(ValueError):
+    """Определение пользовательского исключения."""
     pass
+
 
 def build_messages_and_context(
     params: "AgentRunParams",
 ):
+    """Функция получения переменных из входных данных endpointa."""
     if not params.message or not isinstance(params.message, str):
         raise PayloadError("message must be a non-empty string")
     if not params.access_token:
@@ -36,8 +37,10 @@ def build_messages_and_context(
     }
     return messages, context
 
-@router.post("/run_sync")
+
+@router.post("/run")
 async def run_sync(params: AgentRunParams):
+    """Определение endpoint."""
     t0 = time.perf_counter()
     messages = None
     context = None
@@ -109,9 +112,7 @@ async def run_sync(params: AgentRunParams):
         tok_mask = f"{tok[:5]}" if tok else "NA"
 
         d_build = (t_build - t0) if t_build is not None else 0.0
-        d_create = (
-            (t1 - t_build) if (t1 is not None and t_build is not None) else 0.0
-        )
+        d_create = (t1 - t_build) if (t1 is not None and t_build is not None) else 0.0
         d_exec = (t2 - t1) if (t2 is not None and t1 is not None) else 0.0
         d_save = t_save1 - t_save0
         d_all = t3 - t0
@@ -130,40 +131,40 @@ async def run_sync(params: AgentRunParams):
         logger.exception(msg)
         return JSONResponse(
             content={"success": False, "exception": msg},
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
-@router.post("/run")
-async def run_stream(params: AgentRunParams):
-    messages, context = build_messages_and_context(params)
+# @router.post("/run")
+# async def run_stream(params: AgentRunParams):
+#     messages, context = build_messages_and_context(params)
 
-    async def stream():
-        async with langgraph_client() as client:
-            async for part in client.runs.stream(
-                thread_id=None,
-                assistant_id=params.assistant_id,
-                input={"messages": messages},
-                stream_mode=["values", "debug"],
-                config=params.config,
-                context=context,
-                metadata=params.metadata,
-                on_completion="delete",
-            ):
-                if isinstance(part, Mapping):
-                    payload = json.dumps(part, ensure_ascii=False, default=str)
-                else:
-                    try:
-                        payload = part.json()
-                    except AttributeError:
-                        try:
-                            payload = json.dumps(
-                                part.__dict__, ensure_ascii=False, default=str
-                            )
-                        except Exception:
-                            payload = json.dumps(
-                                {"event": str(part)}, ensure_ascii=False
-                            )
-                yield f"data: {payload}\n\n".encode("utf-8")
+#     async def stream():
+#         async with langgraph_client() as client:
+#             async for part in client.runs.stream(
+#                 thread_id=None,
+#                 assistant_id=params.assistant_id,
+#                 input={"messages": messages},
+#                 stream_mode=["values", "debug"],
+#                 config=params.config,
+#                 context=context,
+#                 metadata=params.metadata,
+#                 on_completion="delete",
+#             ):
+#                 if isinstance(part, Mapping):
+#                     payload = json.dumps(part, ensure_ascii=False, default=str)
+#                 else:
+#                     try:
+#                         payload = part.json()
+#                     except AttributeError:
+#                         try:
+#                             payload = json.dumps(
+#                                 part.__dict__, ensure_ascii=False, default=str
+#                             )
+#                         except Exception:
+#                             payload = json.dumps(
+#                                 {"event": str(part)}, ensure_ascii=False
+#                             )
+#                 yield f"data: {payload}\n\n".encode("utf-8")
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+#     return StreamingResponse(stream(), media_type="text/event-stream")

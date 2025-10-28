@@ -152,7 +152,6 @@ def count_matches(s, arr):
     return sum(k in s for k in arr)
 
 
-
 # --- (предполагается, что все словари/списки: service_value_map, massage_subtype_rules,
 # permanent_keywords, hardware_keywords, care_keywords, removal_keywords, tattoo_keywords,
 # laser_zone_keywords, non_laser_complex_noise и вспомогательные функции уже определены) ---
@@ -194,7 +193,7 @@ def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
 
 def classify(product_name, service_value, description, debug: bool = False):
     """Возвращает категорию. Если debug=True возвращает dict {'category':..., 'checkpoints':[...]}.
-    
+
     Контрольные точки добавлены на всех ключевых шагах.
     """
     checkpoints = []
@@ -368,7 +367,7 @@ def classify(product_name, service_value, description, debug: bool = False):
 # # === Тестовая функция ===
 # async def test_classification(channel_id: int = 2, limit: int = 10):
 #     """Тестирует классификацию без обновления таблицы.
-    
+
 #     Выводит результаты в консоль.
 #     """
 #     conn = await asyncpg.connect(**POSTGRES_CONFIG)

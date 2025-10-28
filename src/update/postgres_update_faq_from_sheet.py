@@ -1,11 +1,12 @@
 """Модуль обновления таблицы faq в postgres из GoogleSheet."""
 
 import asyncio
+
 import asyncpg
 
-from .google_sheet_reader import UniversalGoogleSheetReader
 from ..common import logger
 from ..settings import settings
+from .google_sheet_reader import UniversalGoogleSheetReader
 
 
 async def update_faq_from_sheet(channel_id: int, sheet_name: str = "faq") -> bool:
@@ -20,7 +21,9 @@ async def update_faq_from_sheet(channel_id: int, sheet_name: str = "faq") -> boo
     6. Логгирует этапы и возвращает True в случае успеха или False при ошибке.
     """
     logger.info(f"Начало обновления FAQ для channel_id={channel_id}")
-    conn = await asyncpg.connect(**settings.postgres_config)  # Подключение к БД PostgreSQL
+    conn = await asyncpg.connect(
+        **settings.postgres_config
+    )  # Подключение к БД PostgreSQL
 
     try:
         # Получение URL таблицы Google Sheets для данного канала
