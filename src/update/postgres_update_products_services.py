@@ -4,15 +4,16 @@ import asyncio
 import asyncpg
 
 from ..common import  logger
-from zena_qdrant.qdrant.qdrant_create_services import qdrant_create_services_async
-from zena_qdrant.qdrant.qdrant_retriver_faq_services import retriver_hybrid_async
+from ..settings import settings
+from .qdrant_create_services import qdrant_create_services_async
+from .qdrant_retriever_faq_services import retriver_hybrid_async
 
-QDRANT_COLLECTION_SERVICES = "zena2_services_key"
-
+QDRANT_COLLECTION_TEMP = settings.qdrant_collection_temp
+POSTGRES_CONFIG = settings.postgres_config
 
 async def update_products_services( 
-    channel_id: int,
-    collection_name: str,
+    channel_id: int, 
+    collection_name: str = QDRANT_COLLECTION_TEMP,
     qdrant_create_services: bool = True,
     max_parallel: int = 10,
 ) -> bool:
@@ -32,7 +33,7 @@ async def update_products_services(
         result = await qdrant_create_services_async(collection_name, channel_id)
         if not result:
             logger.error(
-                f"Ошибка создания вспомогательной векторной базы '{QDRANT_COLLECTION_SERVICES}' для channel_id={channel_id}"
+                f"Ошибка создания вспомогательной векторной базы '{QDRANT_COLLECTION_TEMP}' для channel_id={channel_id}"
             )
 
     conn = await asyncpg.connect(**POSTGRES_CONFIG)
@@ -92,7 +93,7 @@ async def update_products_services(
 async def _fetch_service_id(
     product: dict, channel_id: int, semaphore: asyncio.Semaphore
 ) -> tuple | None:
-    """Асинхронно получает service_id для данного продукта из векторной базы Qdrant.
+    """Получает service_id для данного продукта из векторной базы Qdrant.
     Использует semaphore для ограничения количества параллельных запросов.
 
     :param product: словарь с информацией о продукте (product_name, article)
@@ -104,7 +105,7 @@ async def _fetch_service_id(
         try:
             result = await retriver_hybrid_async(
                 query=product["product_name"],
-                database_name=QDRANT_COLLECTION_SERVICES,
+                database_name=QDRANT_COLLECTION_TEMP,
                 channel_id=channel_id,
                 hybrid=False,
                 limit=1,
@@ -122,10 +123,8 @@ if __name__ == "__main__":
     result = asyncio.run(
         update_products_services(
             channel_id=1,
-            collection_name=QDRANT_COLLECTION_SERVICES,
-            qdrant_create_services=True,
         )
     )
 
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.postgres.update_products_services
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update_postgres_qdrant.postgres_update_products_services

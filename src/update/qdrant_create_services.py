@@ -1,3 +1,15 @@
+"""Модуль в котором создается в векторной базе Qdrant коллекция по сервисам(типам услуг).
+Коллекция создается на основе таблицы services в Postgres.
+
+Порядок действий:
+1. Загружает сервисы из Postgres
+2. Сбрасывает/создает коллекцию Qdrant
+3. Загружает сервисы в коллекцию с эмбеддингами
+4. Проверяет работу поиска через retriver_hybrid_async
+
+Примечание: Пересоздается коллекция полностью!!! Нужно переделать частичное по channel_id.
+"""
+
 import asyncio
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
@@ -21,6 +33,35 @@ from .qdrant_common import (
 # Название коллекции Qdrant для сервисов
 QDRANT_COLLECTION = settings.qdrant_collection_services
 POSTGRES_CONFIG = settings.postgres_config
+
+# -------------------- Главная асинхронная функция --------------------
+async def qdrant_create_services_async(collection_name: str, channel_id: int | None = None):
+    """
+    Главная функция для создания коллекции сервисов в Qdrant:
+    1. Загружает сервисы из Postgres
+    2. Сбрасывает/создает коллекцию Qdrant
+    3. Загружает сервисы в коллекцию с эмбеддингами
+    4. Проверяет работу поиска через retriver_hybrid_async
+    """
+    # Шаг 1: Загрузка данных из Postgres
+    docs = await services_load_from_postgres(channel_id=channel_id)
+    if not docs:
+        logger.warning("Нет данных для загрузки.")
+        return False
+ 
+    # Шаг 2: Сброс и создание коллекции
+    await reset_collection(qdrant_client, collection_name)
+
+    # Шаг 3: Загрузка данных в коллекцию
+    await fill_collection_services(docs, collection_name)
+
+    # Шаг 4: Проверка поиска с тестовым запросом
+    results = await retriver_hybrid_async("Массаж", collection_name, channel_id)
+    logger.info(f"Найдено результатов: {len(results)}")
+
+    # Возвращаем True, если хотя бы один результат найден
+    return bool(results)
+
 
 # -------------------- Загрузка сервисов из Postgres --------------------
 async def services_load_from_postgres(channel_id: int | None = None):
@@ -99,34 +140,6 @@ async def fill_collection_services(docs, collection_name, batch_size=64):
             collection_name=collection_name,
             points=points
         )
-
-# -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_services_async(collection_name: str, channel_id: int | None = None):
-    """
-    Главная функция для создания коллекции сервисов в Qdrant:
-    1. Загружает сервисы из Postgres
-    2. Сбрасывает/создает коллекцию Qdrant
-    3. Загружает сервисы в коллекцию с эмбеддингами
-    4. Проверяет работу поиска через retriver_hybrid_async
-    """
-    # Шаг 1: Загрузка данных из Postgres
-    docs = await services_load_from_postgres(channel_id=channel_id)
-    if not docs:
-        logger.warning("Нет данных для загрузки.")
-        return False
- 
-    # Шаг 2: Сброс и создание коллекции
-    await reset_collection(qdrant_client, collection_name)
-
-    # Шаг 3: Загрузка данных в коллекцию
-    await fill_collection_services(docs, collection_name)
-
-    # Шаг 4: Проверка поиска с тестовым запросом
-    results = await retriver_hybrid_async("Массаж", collection_name, channel_id)
-    logger.info(f"Найдено результатов: {len(results)}")
-
-    # Возвращаем True, если хотя бы один результат найден
-    return bool(results)
 
 # -------------------- Запуск скрипта --------------------
 if __name__ == "__main__":

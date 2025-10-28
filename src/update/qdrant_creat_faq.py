@@ -1,3 +1,15 @@
+"""Модуль в котором создается в векторной базе Qdrant коллекция по FAQ.
+Коллекция создается на основе таблицы faq в Postgres.
+
+Порядок действий:
+1. Загружает сервисы из Postgres
+2. Сбрасывает/создает коллекцию Qdrant
+3. Загружает сервисы в коллекцию с эмбеддингами
+4. Проверяет работу поиска через retriver_hybrid_async
+
+Примечание: Пересоздается коллекция полностью!!! Нужно переделать частичное по channel_id.
+"""
+
 import asyncio
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
@@ -22,6 +34,36 @@ from .qdrant_common import (
 # Название коллекции в Qdrant
 QDRANT_COLLECTION = settings.qdrant_collection_faq
 POSTGRES_CONFIG = settings.postgres_config
+
+
+# -------------------- Главная асинхронная функция --------------------
+async def qdrant_create_faq_async():
+    """
+    Главная функция для создания коллекции FAQ в Qdrant:
+    1. Загружает FAQ из Postgres
+    2. Создаёт/сбрасывает коллекцию Qdrant
+    3. Загружает FAQ в коллекцию
+    4. Проверяет работу поиска с тестовым запросом
+    """
+    # Шаг 1: Загрузка данных из Postgres
+    docs = await faq_load_from_postgres()
+    if not docs:
+        logger.warning("Нет данных для загрузки.")
+        return False
+
+    # Шаг 2: Сброс и создание коллекции в Qdrant
+    await reset_collection(qdrant_client, QDRANT_COLLECTION)
+
+    # Шаг 3: Загрузка данных в коллекцию
+    await fill_collection_faq(docs, QDRANT_COLLECTION)
+
+    # Шаг 4: Проверка работы поиска с тестовым запросом
+    results = await retriver_hybrid_async("Абонемент", QDRANT_COLLECTION)
+    logger.info(f"Найдено результатов: {len(results)}")
+
+    # Возвращаем True если поиск вернул хотя бы один результат
+    return bool(results)
+
 
 # -------------------- Загрузка FAQ из Postgres --------------------
 async def faq_load_from_postgres():
@@ -87,33 +129,6 @@ async def fill_collection_faq(docs, collection_name, batch_size=64):
             points=points
         )
 
-# -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_faq_async():
-    """
-    Главная функция для создания коллекции FAQ в Qdrant:
-    1. Загружает FAQ из Postgres
-    2. Создаёт/сбрасывает коллекцию Qdrant
-    3. Загружает FAQ в коллекцию
-    4. Проверяет работу поиска с тестовым запросом
-    """
-    # Шаг 1: Загрузка данных из Postgres
-    docs = await faq_load_from_postgres()
-    if not docs:
-        logger.warning("Нет данных для загрузки.")
-        return False
-
-    # Шаг 2: Сброс и создание коллекции в Qdrant
-    await reset_collection(qdrant_client, QDRANT_COLLECTION)
-
-    # Шаг 3: Загрузка данных в коллекцию
-    await fill_collection_faq(docs, QDRANT_COLLECTION)
-
-    # Шаг 4: Проверка работы поиска с тестовым запросом
-    results = await retriver_hybrid_async("Абонемент", QDRANT_COLLECTION)
-    logger.info(f"Найдено результатов: {len(results)}")
-
-    # Возвращаем True если поиск вернул хотя бы один результат
-    return bool(results)
 
 # -------------------- Запуск скрипта --------------------
 if __name__ == "__main__":

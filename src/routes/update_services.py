@@ -5,13 +5,15 @@ from fastapi.responses import JSONResponse
 
 from ..common import logger
 from ..update.postgres_common import is_channel_id
-from ..update.qdrant_creat_faq import qdrant_create_faq_async
-from ..update.postgres_update_faq_from_sheet import update_faq_from_sheet
+from ..update.qdrant_create_services import qdrant_create_services_async
+from ..update.postgres_update_services_from_sheet import update_services_from_sheet
+from ..update.postgres_update_products_services import update_products_services
+from ..update.qdrant_creat_products import qdrant_create_products_async
 
 router = APIRouter(prefix="/update", tags=["update"])
 
-@router.post("/faq")
-async def update_faq(channel_id: int, update: bool = False):
+@router.post("/services")
+async def update_services(channel_id: int, update: bool = False):
     try:
         t0 = time.perf_counter()
         if not update:
@@ -30,7 +32,7 @@ async def update_faq(channel_id: int, update: bool = False):
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
-        if not await update_faq_from_sheet(channel_id):
+        if not await update_services_from_sheet(channel_id):
             msg = f"Ошибка обновления postgres из GoogleSheet для channel_id = {channel_id}"
             logger.info(msg)
             return JSONResponse(
@@ -39,8 +41,8 @@ async def update_faq(channel_id: int, update: bool = False):
             )
 
         t1 = time.perf_counter()
-        if not await qdrant_create_faq_async():
-            msg = "Ошибка обновления qdrant из postgres."
+        if not await qdrant_create_services_async():
+            msg = "Ошибка обновления коллекции services в qdrant из postgres."
             logger.info(msg)
             return JSONResponse(
                 content={"success": False, "exception": msg},
@@ -48,11 +50,29 @@ async def update_faq(channel_id: int, update: bool = False):
             )
 
         t2 = time.perf_counter()
+        if not await update_products_services(channel_id):
+            msg = "Ошибка обновления таблицы products_services - связка products и services."
+            logger.info(msg)
+            return JSONResponse(
+                content={"success": False, "exception": msg},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        t_all = t2 - t0
-        t_postgres = t1 - t0
-        t_qdrant = t2-t1
-        msg_time = f"Общее время: {t_all:.2f} сек., Postgres: {t_postgres:.2f} сек., Qdrant: {t_qdrant:.2f} сек."
+        t3 = time.perf_counter()
+        if not await qdrant_create_products_async():
+            msg = "Ошибка создания коллекции zena2_products_services_view в qdrant."
+            logger.info(msg)
+            return JSONResponse(
+                content={"success": False, "exception": msg},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        t4 = time.perf_counter()
+        t_all = t4 - t0
+        # t_services = t1 - t0
+        # t_qdrant = t2-t1
+        # t_product_services = t3-t2
+        msg_time = f"Общее время: {t_all:.2f} сек."
         msg = f"Данные успешно обновлены из GoogleSheet для channel_id = {channel_id}. "
         logger.info(msg)
         return JSONResponse(
