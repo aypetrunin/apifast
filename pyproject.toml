@@ -33,7 +33,8 @@ dev = [
     "mypy>=1.13.0",
     "pytest>=8.3.5",
     "ruff>=0.8.2",
-    "pytest-asyncio>=1.2.0"
+    "pytest-asyncio>=1.2.0",
+    "types-tqdm>=4.67.0.20250809",
 ]
 
 [tool.uv]
@@ -70,6 +71,8 @@ convention = "google"
 
 [tool.mypy]
 plugins = ["pydantic.mypy"] # Включает плагин Pydantic для корректной типизации моделей и автогенерации сигнатур конструкторов
+
+ignore_missing_imports = true # глобально игнорирует отсутствие type stubs для сторонних библиотек,
 
 follow_imports = "silent" # Не выводить предупреждения о типах в импортируемых модулях (ускоряет проверку и уменьшает шум)
 warn_redundant_casts = true # Предупреждать о ненужных операциях приведения типа (например, cast, которые не влияют на вывод типов)

@@ -11,7 +11,7 @@
 """
 
 import asyncio
-
+from typing import Any
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели для работы с точками Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
@@ -38,7 +38,7 @@ POSTGRES_CONFIG = settings.postgres_config
 
 
 # -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_faq_async():
+async def qdrant_create_faq_async() -> bool:
     """Главная функция для создания коллекции FAQ в Qdrant.
 
     1. Загружает FAQ из Postgres
@@ -67,7 +67,7 @@ async def qdrant_create_faq_async():
 
 
 # -------------------- Загрузка FAQ из Postgres --------------------
-async def faq_load_from_postgres():
+async def faq_load_from_postgres() -> list[dict[str, Any]]:
     """Загружает все записи FAQ из таблицы 'faq' в Postgres.
 
     Возвращает список словарей с ключами:
@@ -85,7 +85,11 @@ async def faq_load_from_postgres():
 
 
 # -------------------- Загрузка FAQ в Qdrant --------------------
-async def fill_collection_faq(docs, collection_name, batch_size=64):
+async def fill_collection_faq(
+        docs: list[dict[str, Any]],
+        collection_name: str,
+        batch_size: int = 64
+ ) -> None:
     """Загружает FAQ в коллекцию Qdrant.
 
     Для каждой записи создаются два типа эмбеддингов:

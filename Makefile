@@ -15,3 +15,6 @@ lint_fix:
 # Форматирование кода по стандартам Ruff
 format:
 	uv run ruff format $(SRC)
+
+mypy:
+	uv run mypy --config-file pyproject.toml $(SRC)

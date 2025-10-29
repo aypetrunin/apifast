@@ -3,15 +3,19 @@
 import asyncio
 import inspect
 import random
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, TypeVar, Any, Union, Sequence
+from collections.abc import Iterator
 
 import httpx
 from fastembed.sparse.bm25 import Bm25
 from openai import AsyncOpenAI
+from openai.types.create_embedding_response import CreateEmbeddingResponse
 from qdrant_client import AsyncQdrantClient, models
 
 from ..common import logger
 from ..settings import settings
+
+T = TypeVar('T')
 
 # -------------------- Config --------------------
 # Конфигурация для OpenAI, Qdrant и Postgres
@@ -43,37 +47,63 @@ qdrant_client = AsyncQdrantClient(
 
 
 # -------------------- Retry helper --------------------
-# Универсальная функция с повторной попыткой для асинхронных/синхронных функций
+# Универсальная функция с повторной попыткой ТОЛЬКО для асинхронных функций
 async def retry_request(
-    func: Callable[..., Awaitable],  # функция, которую нужно выполнить
-    *args,
-    retries: int = 3,  # количество попыток
-    backoff: float = 2.0,  # коэффициент экспоненциального backoff
-    **kwargs,
-):
-    """Универсальная функция с повторной попыткой для асинхронных/синхронных функций."""
+    func: Callable[..., Union[T, Awaitable[T]]],  # допускает обычный и async вызов
+    *args: Any,
+    retries: int = 3,
+    backoff: float = 2.0,
+    **kwargs: Any,
+) -> T:
     for attempt in range(1, retries + 1):
         try:
-            # Проверяем, является ли функция асинхронной
-            if inspect.iscoroutinefunction(func):
-                return await func(*args, **kwargs)
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            if inspect.isawaitable(result):
+                return await result  # awaitable coroutine
+            return result  # обычная функция
         except Exception as e:
-            # Если это последняя попытка — логируем как ошибку и пробрасываем
             if attempt == retries:
                 logger.exception(f"Последняя неудачная попытка {func.__name__}: {e}")
                 raise
-            # Вычисляем время ожидания с небольшой случайной погрешностью
             wait = backoff**attempt + random.uniform(0, 1)
             logger.warning(
                 f"Ошибка в {func.__name__}: {e} | попытка {attempt}/{retries} — повтор через {wait:.1f}s"
             )
             await asyncio.sleep(wait)
+    assert False, "Unreachable: All attempts failed but no exception was thrown"
 
+# Универсальная функция с повторной попыткой для асинхронных/синхронных функций
+# async def retry_request(
+#     func: Callable[..., Awaitable[T]],  # функция, которую нужно выполнить
+#     *args: Any,
+#     retries: int = 3,  # количество попыток
+#     backoff: float = 2.0,  # коэффициент экспоненциального backoff
+#     **kwargs: Any,
+# ) -> T:
+#     """Универсальная функция с повторной попыткой для асинхронных/синхронных функций."""
+#     for attempt in range(1, retries + 1):
+#         try:
+#             # Проверяем, является ли функция асинхронной
+#             if inspect.iscoroutinefunction(func):
+#                 return await func(*args, **kwargs)
+#             return func(*args, **kwargs)
+#         except Exception as e:
+#             # Если это последняя попытка — логируем как ошибку и пробрасываем
+#             if attempt == retries:
+#                 logger.exception(f"Последняя неудачная попытка {func.__name__}: {e}")
+#                 raise
+#             # Вычисляем время ожидания с небольшой случайной погрешностью
+#             wait = backoff**attempt + random.uniform(0, 1)
+#             logger.warning(
+#                 f"Ошибка в {func.__name__}: {e} | попытка {attempt}/{retries} — повтор через {wait:.1f}s"
+#             )
+#             await asyncio.sleep(wait)
+#     # Добавьте этот return, чтобы у функции всегда был return:
+#     assert False, "Unreachable: All attempts failed but no exception was thrown"
 
 # -------------------- Batch helper --------------------
 # Генератор для разбиения любого итерируемого объекта на батчи заданного размера
-def batch_iterable(iterable, size: int):
+def batch_iterable(iterable: Sequence[T], size: int) -> Iterator[Sequence[T]]:
     """Генератор для разбиения любого итерируемого объекта на батчи заданного размера."""
     for i in range(0, len(iterable), size):
         yield iterable[i : i + size]
@@ -90,7 +120,7 @@ async def embed_texts(
     if not texts:
         return []  # если нет текста, возвращаем пустой список
     # Получаем эмбеддинги через OpenAI с повторными попытками
-    response = await retry_request(
+    response: CreateEmbeddingResponse = await retry_request(
         openai_client.embeddings.create,
         input=texts,
         model=model,
@@ -103,7 +133,10 @@ async def embed_texts(
 
 
 # Обертка для стандартной модели ada
-async def ada_embeddings(texts: list[str], model: str = "text-embedding-ada-002"):
+async def ada_embeddings(
+        texts: list[str],
+        model: str = "text-embedding-ada-002"
+) -> list[list[float]]:
     """Обертка для стандартной модели ada."""
     return await embed_texts(texts, model=model)
 
@@ -113,8 +146,8 @@ async def ada_embeddings(texts: list[str], model: str = "text-embedding-ada-002"
 async def reset_collection(
     client: AsyncQdrantClient,
     collection_name: str,
-    text_index_fields: list[str] = None,  # поля для текстового поиска
-):
+    text_index_fields: list[str] | None = None,  # поля для текстового поиска
+) -> None:
     """Функция для удаления и создания коллекции в Qdrant с настройкой векторов и индексов."""
     try:
         # Пробуем удалить коллекцию (если она существует)
@@ -150,17 +183,33 @@ async def reset_collection(
 
     # Создаем текстовые индексы для указанных полей
     if text_index_fields:
-        default_text_index_params = {
-            "type": "text",
-            "tokenizer": models.TokenizerType.WORD,
-            "min_token_len": 1,
-            "max_token_len": 15,
-            "lowercase": True,
-        }
         for field in text_index_fields:
             await client.create_payload_index(
                 collection_name=collection_name,
                 field_name=field,
-                field_schema=models.TextIndexParams(**default_text_index_params),
+                field_schema=models.TextIndexParams(
+                    type=models.TextIndexType.TEXT,
+                    tokenizer=models.TokenizerType.WORD,
+                    min_token_len=1,
+                    max_token_len=15,
+                    lowercase=True,
+                ),
             )
             logger.info(f'Индекс "{field}" создан.')
+
+
+    # if text_index_fields:
+    #     default_text_index_params = {
+    #         "type": "text",
+    #         "tokenizer": models.TokenizerType.WORD,
+    #         "min_token_len": 1,
+    #         "max_token_len": 15,
+    #         "lowercase": True,
+    #     }
+    #     for field in text_index_fields:
+    #         await client.create_payload_index(
+    #             collection_name=collection_name,
+    #             field_name=field,
+    #             field_schema=models.TextIndexParams(**default_text_index_params),
+    #         )
+    #         logger.info(f'Индекс "{field}" создан.')
