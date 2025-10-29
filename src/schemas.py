@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class AgentRunParams(BaseModel):
     """Плоские поля из входного JSON."""
+
     user_id: int
     message: str
     reply_to_history_id: int

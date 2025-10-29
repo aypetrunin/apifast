@@ -3,7 +3,15 @@
 Связано с особенностями формирования названий в Юклайнс.
 """
 
+import asyncio
 import re
+
+import asyncpg
+
+from ..common import logger
+from ..settings import settings
+
+POSTGRES_CONFIG = settings.postgres_config
 
 # === Конфигурация ===
 settings = {
@@ -47,62 +55,16 @@ massage_subtype_rules = [
     {"path": "Массажи.Ноги", "includes": ["ног", "стоп"]},
 ]
 
-permanent_keywords = [
-    "перманент",
-    "межреснич",
-    "пудров",
-    "стрелк",
-    "бров",
-    "татуаж",
-    "веко",
-    "губ",
-]
+permanent_keywords = ["перманент", "межреснич", "пудров", "стрелк", "бров", "татуаж", "веко", "губ"]
 hardware_keywords = ["lpg", "миостимул", "гальван", "токов", "кавитац", "rf", "вакуум"]
-care_keywords = [
-    "уход",
-    "маска",
-    "концентрат",
-    "лифт",
-    "увлажн",
-    "осветлен",
-    "регенерац",
-    "фарфоровая куколка",
-    "экспресс- уход",
-    "экспресс-уход",
-]
+care_keywords = ["уход", "маска", "концентрат", "лифт", "увлажн", "осветлен", "регенерац", "фарфоровая куколка", "экспресс- уход", "экспресс-уход"]
 removal_keywords = ["удаление", "ремувер"]
 tattoo_keywords = ["микро-тату", "мини-тату", "тату ", "татуиров"]
 laser_zone_keywords = [
-    "бикини",
-    "подмыш",
-    "ноги",
-    "ногу",
-    "голен",
-    "рук",
-    "руки",
-    "предплеч",
-    "бедр",
-    "бедро",
-    "линия живота",
-    "живот",
-    "плеч",
-    "кист",
-    "стоп",
-    "пальц",
-    "колен",
+    "бикини", "подмыш", "ноги", "ногу", "голен", "рук", "руки", "предплеч", "бедр", "бедро",
+    "линия живота", "живот", "плеч", "кист", "стоп", "пальц", "колен"
 ]
-non_laser_complex_noise = [
-    "массаж",
-    "антицел",
-    "lpg",
-    "миостимул",
-    "кавитац",
-    "вакуум",
-    "rf",
-    "курс",
-    "программ",
-    "гальван",
-]
+non_laser_complex_noise = ["массаж", "антицел", "lpg", "миостимул", "кавитац", "вакуум", "rf", "курс", "программ", "гальван"]
 
 
 # === Вспомогательные функции ===
@@ -110,21 +72,13 @@ def to_lower(v):
     """Вспомогательная функция."""
     return str(v or "").strip().lower()
 
-
 def normalize_spaces(s):
     """Вспомогательная функция."""
     return re.sub(r"\s+", " ", s or "").strip()
 
-
 def soft_cap(s, limit):
     """Вспомогательная функция."""
     return s if not limit or len(s) <= limit else s[: limit - 1].strip() + "…"
-
-
-# def soft_cap(s, l):
-#     """Вспомогательная функция."""
-#     return s if not l or len(s) <= l else s[: l - 1].strip() + "…"
-
 
 def sanitize_name(s):
     """Вспомогательная функция."""
@@ -133,7 +87,6 @@ def sanitize_name(s):
         n = n.capitalize()
     return soft_cap(n, settings["maxNameLength"])
 
-
 def massage_subtype(base_path, name_lower):
     """Вспомогательная функция."""
     for rule in massage_subtype_rules:
@@ -141,26 +94,20 @@ def massage_subtype(base_path, name_lower):
             return rule["path"]
     return base_path
 
-
 def extend_permanent(base_path, name_lower):
     """Вспомогательная функция."""
     return f"{base_path}.Коррекция" if "коррекц" in name_lower else base_path
-
 
 def count_matches(s, arr):
     """Вспомогательная функция."""
     return sum(k in s for k in arr)
 
 
-# --- (предполагается, что все словари/списки: service_value_map, massage_subtype_rules,
-# permanent_keywords, hardware_keywords, care_keywords, removal_keywords, tattoo_keywords,
-# laser_zone_keywords, non_laser_complex_noise и вспомогательные функции уже определены) ---
-
-
 def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
     """Возвращает True/False. Если передан checkpoints (list), добавляет пояснения."""
-
+    
     def cp(msg):
+        """Вспомогательная функция."""
         if checkpoints is not None:
             checkpoints.append(msg)
 
@@ -179,9 +126,7 @@ def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
 
     sizePattern = re.search(r"\b(xs\+?|s|m\+?|m\s*\+|l\+?|l)\b", name_lower, flags=re.I)
     comboPattern = re.search(r"\(.+\+.+\)", name_lower)
-    cp(
-        f"is_laser_epilation_complex: sizePattern={bool(sizePattern)}, comboPattern={bool(comboPattern)}"
-    )
+    cp(f"is_laser_epilation_complex: sizePattern={bool(sizePattern)}, comboPattern={bool(comboPattern)}")
 
     if not (sizePattern or comboPattern):
         cp("is_laser_epilation_complex: no size/combo pattern -> False")
@@ -193,11 +138,10 @@ def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
 
 def classify(product_name, service_value, description, debug: bool = False):
     """Возвращает категорию. Если debug=True возвращает dict {'category':..., 'checkpoints':[...]}.
-
+    
     Контрольные точки добавлены на всех ключевых шагах.
     """
     checkpoints = []
-
     def cp(msg):
         checkpoints.append(msg)
 
@@ -206,12 +150,8 @@ def classify(product_name, service_value, description, debug: bool = False):
     desc_lower = to_lower(description)
     all_lower = f"{name_lower} {svc_lower} {desc_lower}"
 
-    cp(
-        f"INPUT: product_name='{product_name}' | service_value='{service_value}' | description='{description}'"
-    )
-    cp(
-        f"LOWER: name_lower='{name_lower}' | svc_lower='{svc_lower}' | desc_lower='{desc_lower}'"
-    )
+    cp(f"INPUT: product_name='{product_name}' | service_value='{service_value}' | description='{description}'")
+    cp(f"LOWER: name_lower='{name_lower}' | svc_lower='{svc_lower}' | desc_lower='{desc_lower}'")
 
     category = None
 
@@ -231,13 +171,8 @@ def classify(product_name, service_value, description, debug: bool = False):
             category = massage_subtype(category, name_lower)
             cp(f"massage_subtype applied: '{old}' -> '{category}'")
 
-        if (
-            category == "Коррекция фигуры.Комплекс"
-            or category == "Коррекция фигуры.Комплексы"
-        ):
-            cp(
-                "service_map category is Коррекция фигуры.Комплексы -> checking laser complex override"
-            )
+        if category == "Коррекция фигуры.Комплекс" or category == "Коррекция фигуры.Комплексы":
+            cp("service_map category is Коррекция фигуры.Комплексы -> checking laser complex override")
             laser = is_laser_epilation_complex(name_lower, svc_lower, checkpoints)
             cp(f"is_laser_epilation_complex returned {laser}")
             if laser:
@@ -314,9 +249,7 @@ def classify(product_name, service_value, description, debug: bool = False):
     # 9) Course/complex detection (body complexes)
     if not category:
         is_course = bool(re.search(r"(курс|комплекс|программ)", all_lower))
-        has_tech = bool(
-            re.search(r"(lpg|миостимул|кавитац|вакуум|rf|целлюлит)", all_lower)
-        )
+        has_tech = bool(re.search(r"(lpg|миостимул|кавитац|вакуум|rf|целлюлит)", all_lower))
         cp(f"COURSE check: is_course={is_course}, has_tech={has_tech}")
         if is_course and has_tech:
             category = "Коррекция фигуры.Комплексы"
@@ -364,49 +297,38 @@ def classify(product_name, service_value, description, debug: bool = False):
     return normalized
 
 
-# # === Тестовая функция ===
-# async def test_classification(channel_id: int = 2, limit: int = 10):
-#     """Тестирует классификацию без обновления таблицы.
+# === Тестовая функция ===
+async def test_classification(channel_id: int=2, limit: int = 10):
+    """Тестирует классификацию без обновления таблицы.
 
-#     Выводит результаты в консоль.
-#     """
-#     conn = await asyncpg.connect(**POSTGRES_CONFIG)
-#     try:
-#         rows = await conn.fetch(
-#             "SELECT product_id, product_name, service_value, description "
-#             "FROM products WHERE channel_id=$1 LIMIT $2",
-#             channel_id,
-#             limit,
-#         )
+    Выводит результаты в консоль.
+    """
+    conn = await asyncpg.connect(**POSTGRES_CONFIG)
+    try:
+        rows = await conn.fetch(
+            "SELECT product_id, product_name, service_value, description "
+            "FROM products WHERE channel_id=$1 LIMIT $2",
+            channel_id, limit
+        )
 
-#         # print(
-#         #     f"🔍 Тест классификации для channel_id={channel_id} (первые {limit} записей):\n"
-#         # )
+        logger.info(f"🔍 Тест классификации для channel_id={channel_id} (первые {limit} записей):\n")
 
-#         for r in rows:
-#             category = classify(
-#                 r["product_name"],
-#                 r["service_value"],
-#                 r["description"] or "",
-#                 debug=False,
-#             )
-#             display_name = sanitize_name(r["product_name"])
-#             full_name = f"{category} - {display_name}"
+        for r in rows:
+            category = classify(r["product_name"], r["service_value"], r["description"] or "", debug=False)
+            display_name = sanitize_name(r["product_name"])
+            full_name = f"{category} - {display_name}"
 
-#             # print(f"🧩 ID: {r['product_id']}")
-#             # print(f"  product_name: {r['product_name']}")
-#             # print(f"  service_value: {r['service_value']}")
-#             # print(f"  description: {r['description']}")
-#             # print(f"  → category: {category}")
-#             # print(f"  → product_full_name: {full_name}\n")
+            logger.info(f"🧩 ID: {r['product_id']}")
+            logger.info(f"  → category: {category}")
+            logger.info(f"  → product_full_name: {full_name}\n")
 
-#     finally:
-#         await conn.close()
+    finally:
+        await conn.close()
 
 
-# if __name__ == "__main__":
-#     asyncio.run(test_classification())
+if __name__ == "__main__":
+    asyncio.run(test_classification())
 
 
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.postgres.modify_products_2
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update.postgres_products_utils

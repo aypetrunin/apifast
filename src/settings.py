@@ -1,6 +1,7 @@
 """Модуль определения переменных проекта."""
 
 import os
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,7 +13,7 @@ def is_docker() -> bool:
 
 class Settings(BaseSettings):
     """Опреление системных переменных."""
-    
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     cors_origins: list[str] = ["*"]
@@ -45,7 +46,7 @@ class Settings(BaseSettings):
     postgres_port: int
 
     @property
-    def postgres_config(self) -> dict:
+    def postgres_config(self) -> dict[str, Any]:
         """Определение свойства."""
         return {
             "user": self.postgres_user,

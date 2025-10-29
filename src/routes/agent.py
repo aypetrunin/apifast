@@ -15,6 +15,7 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 
 class PayloadError(ValueError):
     """Определение пользовательского исключения."""
+
     pass
 
 

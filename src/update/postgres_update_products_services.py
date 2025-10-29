@@ -12,6 +12,7 @@ from .qdrant_retriever_faq_services import retriver_hybrid_async
 QDRANT_COLLECTION_TEMP = settings.qdrant_collection_temp
 POSTGRES_CONFIG = settings.postgres_config
 
+
 async def update_products_services(
     channel_id: int,
     collection_name: str = QDRANT_COLLECTION_TEMP,

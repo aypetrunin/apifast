@@ -15,6 +15,7 @@ SERVICE_ACCOUNT_FILE = os.path.join(
 
 class UniversalGoogleSheetReader:
     """Класс универсального чтения из GoogleSheet."""
+
     def __init__(
         self, spreadsheet_url, sheet_name, service_account_file=SERVICE_ACCOUNT_FILE
     ):
