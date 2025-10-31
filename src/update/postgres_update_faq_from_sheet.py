@@ -1,11 +1,13 @@
 """Модуль обновления таблицы faq в postgres из GoogleSheet."""
 
 import asyncio
+from typing import Any
 
 import asyncpg
+from asyncpg import Connection
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 from .google_sheet_reader import UniversalGoogleSheetReader
 
 
@@ -21,7 +23,7 @@ async def update_faq_from_sheet(channel_id: int, sheet_name: str = "faq") -> boo
     6. Логгирует этапы и возвращает True в случае успеха или False при ошибке.
     """
     logger.info(f"Начало обновления FAQ для channel_id={channel_id}")
-    conn = await asyncpg.connect(
+    conn: Connection = await asyncpg.connect(
         **settings.postgres_config
     )  # Подключение к БД PostgreSQL
 
@@ -74,7 +76,7 @@ async def update_faq_from_sheet(channel_id: int, sheet_name: str = "faq") -> boo
         await conn.close()
 
 
-async def _fetch_spreadsheet_url(conn, channel_id: int) -> str:
+async def _fetch_spreadsheet_url(conn: Connection, channel_id: int) -> str:
     """Асинхронное получение URL Google Sheets из базы по channel_id.
 
     Выполняет SQL-запрос для извлечения URL из таблицы channel.
@@ -89,17 +91,17 @@ async def _fetch_spreadsheet_url(conn, channel_id: int) -> str:
     return channel_row["url_googlesheet_data"]
 
 
-def _filter_valid_faqs(faqs: list[dict]) -> list[dict]:
+def _filter_valid_faqs(faqs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Валидация и фильтрация списка FAQ.
 
     Каждая строка FAQ должна содержать непустые строковые значения в полях 'question' и 'answer'.
     Возвращает список только корректных записей.
     """
 
-    def validate_faq_row(faq: dict) -> bool:
+    def validate_faq_row(faq: dict[str, Any]) -> bool:
         question = faq.get("question", "")
         answer = faq.get("answer", "")
-        return (
+        return bool(
             isinstance(question, str)
             and question.strip()
             and isinstance(answer, str)
@@ -109,7 +111,7 @@ def _filter_valid_faqs(faqs: list[dict]) -> list[dict]:
     return [faq for faq in faqs if validate_faq_row(faq)]
 
 
-async def _delete_existing_faq(conn, channel_id: int) -> int:
+async def _delete_existing_faq(conn: Connection, channel_id: int) -> int:
     """Асинхронное удаление всех предыдущих FAQ из базы для заданного канала.
 
     Выполняется SQL-команда DELETE, возвращается количество удаленных записей.
@@ -121,7 +123,9 @@ async def _delete_existing_faq(conn, channel_id: int) -> int:
     return deleted_count
 
 
-def _build_insert_tuples(faqs_filtered: list[dict], channel_id: int) -> list[tuple]:
+def _build_insert_tuples(
+    faqs_filtered: list[dict[str, Any]], channel_id: int
+) -> list[tuple[str, Any, Any, int]]:
     """Формирование списка кортежей значений для вставки в таблицу FAQ.
 
     Каждый кортеж содержит значения (topic, question, answer, channel_id).

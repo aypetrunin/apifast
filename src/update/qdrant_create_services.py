@@ -11,13 +11,14 @@
 """
 
 import asyncio
+from typing import Any
 
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели и структуры для работы с Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 
 # Импорт общих клиентов и функций из модуля zena_qdrant
 from .qdrant_common import (
@@ -69,7 +70,9 @@ async def qdrant_create_services_async(
 
 
 # -------------------- Загрузка сервисов из Postgres --------------------
-async def services_load_from_postgres(channel_id: int | None = None):
+async def services_load_from_postgres(
+    channel_id: int | None = None,
+) -> list[dict[str, Any]]:
     """Загружает сервисы из таблицы services.
 
     Если channel_id указан, фильтрует по нему, иначе возвращает все сервисы.
@@ -101,7 +104,9 @@ async def services_load_from_postgres(channel_id: int | None = None):
 
 
 # -------------------- Загрузка сервисов в Qdrant --------------------
-async def fill_collection_services(docs, collection_name, batch_size=64):
+async def fill_collection_services(
+    docs: list[dict[str, Any]], collection_name: str, batch_size: int = 64
+) -> None:
     """Загружает сервисы в коллекцию Qdrant.
 
     Для каждого сервиса создаются два типа эмбеддингов:

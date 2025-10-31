@@ -1,12 +1,22 @@
 """Модуль в котором реализованы ретриверы по коллекции 'zena2_products_services_view'."""
 
-import asyncio
 from typing import Any
 
 from qdrant_client import models
+from qdrant_client.conversions.common_types import Record, ScoredPoint
+from qdrant_client.http.models import (
+    FieldCondition,
+    Filter,
+    HasIdCondition,
+    HasVectorCondition,
+    IsEmptyCondition,
+    IsNullCondition,
+    MatchText,
+    MatchValue,
+    NestedCondition,
+)
 
-from ..common import logger
-from ..settings import settings
+from ..settings import settings  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
@@ -19,7 +29,7 @@ COLLECTION_NAME = settings.qdrant_collection_products
 
 
 # -------------------- Преобразование точек --------------------
-def points_to_list(points) -> list[dict[str, Any]]:
+def points_to_list(points: list[Record] | list[ScoredPoint]) -> list[dict[str, Any]]:
     """Преобразует результаты запроса Qdrant.
 
     Преобразует результаты запроса Qdrant (объекты ScoredPoint или Record)
@@ -31,13 +41,13 @@ def points_to_list(points) -> list[dict[str, Any]]:
     Возвращает:
         Список словарей, содержащих поля продукта: имя, тип, длительность, цена и т.д.
     """
-    # Если пришёл объект с полем .points — извлекаем его
+    # Определяем тип ScoredPoint по наличию атрибута points.
     if hasattr(points, "points"):
         points = points.points
 
     result = []
     for p in points:
-        pl = p.payload  # payload — это словарь, сохранённый в точке Qdrant
+        pl = p.payload or {}  # payload — это словарь, сохранённый в точке Qdrant
         price_min, price_max = pl.get("price_min"), pl.get("price_max")
 
         # Формируем карточку продукта в удобном формате
@@ -56,7 +66,7 @@ def points_to_list(points) -> list[dict[str, Any]]:
                     if price_min == price_max
                     else f"{price_min} - {price_max} руб."
                 )
-                if price_min and price_max
+                if price_min is not None and price_max is not None
                 else None,
             }
         )
@@ -64,6 +74,87 @@ def points_to_list(points) -> list[dict[str, Any]]:
 
 
 # -------------------- Универсальный сборщик фильтров --------------------
+# def make_filter(
+#     channel_id: int | None = None,
+#     indications: list[str] | None = None,
+#     contraindications: list[str] | None = None,
+#     body_parts: list[str] | None = None,
+#     product_type: list[str] | None = None,
+#     use_should: bool = False,
+# ) -> models.Filter | None:
+#     """Формирует объект фильтра Qdrant для запросов.
+
+#     Аргументы:
+#         channel_id: фильтр по ID канала
+#         indications: список показаний
+#         contraindications: список противопоказаний
+#         body_parts: список частей тела
+#         product_type: тип продукта (например, "разовый", "абонемент")
+#         use_should: если True, используется мягкое соответствие (should), а не строгое (must)
+
+#     Возвращает:
+#         models.Filter или None, если фильтры не заданы
+#     """
+#     must, must_not, should = [], [], []
+
+#     # --- Фильтрация по каналу ---
+#     if channel_id:
+#         must.append(
+#             models.FieldCondition(
+#                 key="channel_id", match=models.MatchValue(value=channel_id)
+#             )
+#         )
+
+#     # --- Фильтрация по показаниям ---
+#     if indications:
+#         (should if use_should else must).extend(
+#             [
+#                 models.FieldCondition(
+#                     key="indications_key", match=models.MatchText(text=i)
+#                 )
+#                 for i in indications
+#             ]
+#         )
+
+#     # --- Фильтрация по частям тела ---
+#     if body_parts:
+#         must.extend(
+#             [
+#                 models.FieldCondition(key="body_parts", match=models.MatchText(text=b))
+#                 for b in body_parts
+#             ]
+#         )
+
+#     # --- Фильтрация по типу продукта ---
+#     if product_type:
+#         must.extend(
+#             [
+#                 models.FieldCondition(
+#                     key="product_type", match=models.MatchText(text=t)
+#                 )
+#                 for t in product_type
+#             ]
+#         )
+
+#     # --- Исключение по противопоказаниям ---
+#     if contraindications:
+#         must_not.extend(
+#             [
+#                 models.FieldCondition(
+#                     key="contraindications_key", match=models.MatchText(text=c)
+#                 )
+#                 for c in contraindications
+#             ]
+#         )
+
+#     # Возвращаем собранный фильтр, если есть условия
+#     if any([must, must_not, should]):
+#         return models.Filter(
+#             must=must or None, must_not=must_not or None, should=should or None
+#         )
+#     return None
+
+
 def make_filter(
     channel_id: int | None = None,
     indications: list[str] | None = None,
@@ -71,7 +162,7 @@ def make_filter(
     body_parts: list[str] | None = None,
     product_type: list[str] | None = None,
     use_should: bool = False,
-) -> models.Filter | None:
+) -> Filter | None:
     """Формирует объект фильтра Qdrant для запросов.
 
     Аргументы:
@@ -85,62 +176,76 @@ def make_filter(
     Возвращает:
         models.Filter или None, если фильтры не заданы
     """
-    must, must_not, should = [], [], []
+    must: list[
+        FieldCondition
+        | IsEmptyCondition
+        | IsNullCondition
+        | HasIdCondition
+        | HasVectorCondition
+        | NestedCondition
+        | Filter
+    ] = []
+    must_not: list[
+        FieldCondition
+        | IsEmptyCondition
+        | IsNullCondition
+        | HasIdCondition
+        | HasVectorCondition
+        | NestedCondition
+        | Filter
+    ] = []
+    should: list[
+        FieldCondition
+        | IsEmptyCondition
+        | IsNullCondition
+        | HasIdCondition
+        | HasVectorCondition
+        | NestedCondition
+        | Filter
+    ] = []
 
-    # --- Фильтрация по каналу ---
     if channel_id:
         must.append(
-            models.FieldCondition(
-                key="channel_id", match=models.MatchValue(value=channel_id)
-            )
+            FieldCondition(key="channel_id", match=MatchValue(value=channel_id))
         )
 
-    # --- Фильтрация по показаниям ---
     if indications:
         (should if use_should else must).extend(
             [
-                models.FieldCondition(
-                    key="indications_key", match=models.MatchText(text=i)
-                )
+                FieldCondition(key="indications_key", match=MatchText(text=i))
                 for i in indications
             ]
         )
 
-    # --- Фильтрация по частям тела ---
     if body_parts:
         must.extend(
             [
-                models.FieldCondition(key="body_parts", match=models.MatchText(text=b))
+                FieldCondition(key="body_parts", match=MatchText(text=b))
                 for b in body_parts
             ]
         )
 
-    # --- Фильтрация по типу продукта ---
     if product_type:
         must.extend(
             [
-                models.FieldCondition(
-                    key="product_type", match=models.MatchText(text=t)
-                )
+                FieldCondition(key="product_type", match=MatchText(text=t))
                 for t in product_type
             ]
         )
 
-    # --- Исключение по противопоказаниям ---
     if contraindications:
         must_not.extend(
             [
-                models.FieldCondition(
-                    key="contraindications_key", match=models.MatchText(text=c)
-                )
+                FieldCondition(key="contraindications_key", match=MatchText(text=c))
                 for c in contraindications
             ]
         )
 
-    # Возвращаем собранный фильтр, если есть условия
     if any([must, must_not, should]):
-        return models.Filter(
-            must=must or None, must_not=must_not or None, should=should or None
+        return Filter(
+            must=must if must else None,
+            must_not=must_not if must_not else None,
+            should=should if should else None,
         )
     return None
 
@@ -168,12 +273,13 @@ async def retriever_product_async(
         indications=indications, contraindications=contraindications
     )
 
-    async def _logic():
+    async def _logic() -> list[dict[str, Any]]:
+        res: list[ScoredPoint] | list[Record]
         if query:
             # Создаём dense-вектор OpenAI Ada
             query_vector = (await ada_embeddings([query]))[0]
 
-            # Поиск ближайших точек в Qdrant
+            # Поиск ближайших точек в Qdrant res: list[ScoredPoint]
             res = await qdrant_client.query_points(
                 collection_name=COLLECTION_NAME,
                 query=query_vector,
@@ -183,7 +289,7 @@ async def retriever_product_async(
                 query_filter=query_filter,
             )
         else:
-            # Если запроса нет — просто скроллим коллекцию
+            # Если запроса нет — просто скроллим коллекцию res: list[Record]
             res, _ = await qdrant_client.scroll(
                 collection_name=COLLECTION_NAME,
                 scroll_filter=query_filter,
@@ -228,7 +334,7 @@ async def retriever_product_hybrid_async(
         use_should=True,
     )
 
-    async def _logic():
+    async def _logic() -> list[dict[str, Any]]:
         if query:
             # --- Генерация векторов ---
             qv_ada = (await ada_embeddings([query]))[0]
@@ -243,7 +349,7 @@ async def retriever_product_hybrid_async(
                     limit=12,
                 ),
             ]
-
+            res: list[ScoredPoint] | list[Record]
             # --- Выполнение гибридного поиска (RRF) ---
             res = await qdrant_client.query_points(
                 collection_name=COLLECTION_NAME,
@@ -264,122 +370,6 @@ async def retriever_product_hybrid_async(
         return points_to_list(res)
 
     return await retry_request(_logic)
-
-
-# -------------------- Гибридный поиск с FormulaQuery --------------------
-async def retriever_product_hybrid_mult_async(
-    channel_id: int,
-    query: str | None = None,
-    indications: list[str] | None = None,
-    contraindications: list[str] | None = None,
-    body_parts: list[str] | None = None,
-    product_type: list[str] | None = None,
-) -> list[dict[str, Any]]:
-    """Гибридный поиск с бустингом.
-
-    Расширенный гибридный поиск, использующий FormulaQuery
-    для задания кастомных весов при объединении скоринговых факторов.
-    Подходит для бустинга релевантности по дополнительным полям.
-
-    Аргументы:
-        channel_id: ID канала
-        query: поисковая строка
-        indications, contraindications, body_parts, product_type: фильтры
-
-    Возвращает:
-        Список найденных продуктов с учётом пользовательских весов.
-    """
-    query_filter = make_filter(
-        channel_id=channel_id,
-        indications=indications,
-        contraindications=contraindications,
-        body_parts=body_parts,
-        product_type=product_type,
-    )
-
-    async def _logic():
-        if query:
-            qv_ada = (await ada_embeddings([query]))[0]
-            qv_bm25 = next(bm25_embedding_model.query_embed(query))
-
-            prefetch = [
-                models.Prefetch(query=qv_ada, using="ada-embedding", limit=10),
-                models.Prefetch(
-                    query=models.SparseVector(**qv_bm25.as_object()),
-                    using="bm25",
-                    limit=10,
-                ),
-            ]
-
-            # --- FormulaQuery: объединение с весами ---
-            formula = models.FormulaQuery(
-                formula=models.SumExpression(
-                    sum=[
-                        "$score",
-                        # Бустинг по мультипликативным признакам
-                        models.MultExpression(
-                            mult=[
-                                0.3,
-                                models.FieldCondition(
-                                    key="mult_score_boosting",
-                                    match=models.MatchAny(any=["mult_1"]),
-                                ),
-                            ]
-                        ),
-                        models.MultExpression(
-                            mult=[
-                                0.2,
-                                models.FieldCondition(
-                                    key="mult_score_boosting",
-                                    match=models.MatchAny(any=["mult_2"]),
-                                ),
-                            ]
-                        ),
-                    ]
-                )
-            )
-
-            res = await qdrant_client.query_points(
-                collection_name=COLLECTION_NAME,
-                prefetch=prefetch,
-                query=formula,
-                with_payload=True,
-                query_filter=query_filter,
-                limit=10,
-            )
-        else:
-            res, _ = await qdrant_client.scroll(
-                collection_name=COLLECTION_NAME,
-                scroll_filter=query_filter,
-                with_payload=True,
-                limit=10,
-            )
-        return points_to_list(res)
-
-    return await retry_request(_logic)
-
-
-# -------------------- Тестовый запуск --------------------
-if __name__ == "__main__":
-
-    async def main():
-        """Тест.
-
-        Пример тестового вызова гибридного поиска.
-        Ищет массажные услуги по фильтрам и запросу.
-        """
-        results = await retriever_product_hybrid_async(
-            channel_id=2,
-            query="массаж",
-            indications=["отечность"],
-            contraindications=["высокое"],
-            body_parts=["тело"],
-            # product_type=["разовый"]
-        )
-        logger.info(f"Результаты: {len(results)} элементов")
-        # logger.info(results[:3])
-
-    asyncio.run(main())
 
 
 # cd /home/copilot_superuser/petrunin/mcp

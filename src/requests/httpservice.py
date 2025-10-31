@@ -4,9 +4,10 @@ import asyncio
 import random
 
 import aiohttp
-from typing_extensions import Any, Awaitable, Callable, TypeVar
+from typing_extensions import Any, Awaitable, Callable, Type, TypeVar
 
-from ..common import logger
+# Свои модули
+from ..common import logger  # type: ignore
 
 T = TypeVar("T")
 
@@ -17,15 +18,15 @@ async def sent_message_to_history(
     user_companychat: int,
     reply_to_history_id: int,
     access_token: str,
-    tokens: dict,
-    tools: list,
-    tools_args: dict,
-    tools_result: dict,
+    tokens: dict[str, Any],
+    tools: list[str],
+    tools_args: dict[str, Any],
+    tools_result: dict[str, Any],
     prompt_system: str,
     template_prompt_system: str,
     dialog_state: str,
     dialog_state_new: str,
-) -> dict:
+) -> dict[str, Any]:
     """Отправка переменных на endpoint для сохранения с повтором при ошибках."""
     return await retry_async(
         _sent_message_to_history,
@@ -51,15 +52,15 @@ async def _sent_message_to_history(
     user_companychat: int,
     reply_to_history_id: int,
     access_token: str,
-    tokens: dict,
-    tools: list,
-    tools_args: dict,
-    tools_result: dict,
+    tokens: dict[str, Any],
+    tools: list[str],
+    tools_args: dict[str, Any],
+    tools_result: dict[str, Any],
     prompt_system: str,
     template_prompt_system: str,
     dialog_state: str,
     dialog_state_new: str,
-) -> dict:
+) -> dict[str, Any]:
     """Отправка переменных на endpoint для сохранения."""
     url = "https://httpservice.ai2b.pro/v1/telegram/n8n/outgoing"
     payload = {
@@ -92,7 +93,7 @@ async def _sent_message_to_history(
     except aiohttp.ClientResponseError as e:
         logger.warning(f"HTTP error: {e.status} {e.message}")
         raise
-    except aiohttp.ClientTimeout:
+    except aiohttp.ClientTimeout:  # type: ignore[misc]
         logger.warning("Request timed out")
         raise
     except aiohttp.ClientError as e:
@@ -106,7 +107,7 @@ async def retry_async(
     retries: int = 1,
     backoff: float = 2.0,
     jitter: float = 1.0,
-    exceptions: tuple[type[Exception], ...] = (Exception,),
+    exceptions: tuple[Type[BaseException], ...] = (Exception,),
     **kwargs: Any,
 ) -> T:
     """Асинхронные ретраи с экспоненциальным бэкоффом и равномерным джиттером.
@@ -133,3 +134,5 @@ async def retry_async(
             )
             # Неблокирующее ожидание — не мешает другим корутинам
             await asyncio.sleep(wait)
+    # Этот raise теоретически невозможен, но для mypy необходим
+    raise RuntimeError("retry_async exhausted all retries without returning")

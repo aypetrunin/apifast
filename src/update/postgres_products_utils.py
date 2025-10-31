@@ -8,8 +8,8 @@ import re
 
 import asyncpg
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 
 POSTGRES_CONFIG = settings.postgres_config
 
@@ -55,58 +55,110 @@ massage_subtype_rules = [
     {"path": "Массажи.Ноги", "includes": ["ног", "стоп"]},
 ]
 
-permanent_keywords = ["перманент", "межреснич", "пудров", "стрелк", "бров", "татуаж", "веко", "губ"]
+permanent_keywords = [
+    "перманент",
+    "межреснич",
+    "пудров",
+    "стрелк",
+    "бров",
+    "татуаж",
+    "веко",
+    "губ",
+]
 hardware_keywords = ["lpg", "миостимул", "гальван", "токов", "кавитац", "rf", "вакуум"]
-care_keywords = ["уход", "маска", "концентрат", "лифт", "увлажн", "осветлен", "регенерац", "фарфоровая куколка", "экспресс- уход", "экспресс-уход"]
+care_keywords = [
+    "уход",
+    "маска",
+    "концентрат",
+    "лифт",
+    "увлажн",
+    "осветлен",
+    "регенерац",
+    "фарфоровая куколка",
+    "экспресс- уход",
+    "экспресс-уход",
+]
 removal_keywords = ["удаление", "ремувер"]
 tattoo_keywords = ["микро-тату", "мини-тату", "тату ", "татуиров"]
 laser_zone_keywords = [
-    "бикини", "подмыш", "ноги", "ногу", "голен", "рук", "руки", "предплеч", "бедр", "бедро",
-    "линия живота", "живот", "плеч", "кист", "стоп", "пальц", "колен"
+    "бикини",
+    "подмыш",
+    "ноги",
+    "ногу",
+    "голен",
+    "рук",
+    "руки",
+    "предплеч",
+    "бедр",
+    "бедро",
+    "линия живота",
+    "живот",
+    "плеч",
+    "кист",
+    "стоп",
+    "пальц",
+    "колен",
 ]
-non_laser_complex_noise = ["массаж", "антицел", "lpg", "миостимул", "кавитац", "вакуум", "rf", "курс", "программ", "гальван"]
+non_laser_complex_noise = [
+    "массаж",
+    "антицел",
+    "lpg",
+    "миостимул",
+    "кавитац",
+    "вакуум",
+    "rf",
+    "курс",
+    "программ",
+    "гальван",
+]
 
 
 # === Вспомогательные функции ===
-def to_lower(v):
+def to_lower(v):  # type: ignore
     """Вспомогательная функция."""
     return str(v or "").strip().lower()
 
-def normalize_spaces(s):
+
+def normalize_spaces(s):  # type: ignore
     """Вспомогательная функция."""
     return re.sub(r"\s+", " ", s or "").strip()
 
-def soft_cap(s, limit):
+
+def soft_cap(s, limit):  # type: ignore
     """Вспомогательная функция."""
     return s if not limit or len(s) <= limit else s[: limit - 1].strip() + "…"
 
-def sanitize_name(s):
+
+def sanitize_name(s):  # type: ignore
     """Вспомогательная функция."""
     n = normalize_spaces(s)
     if not settings["keepOriginalCase"]:
         n = n.capitalize()
     return soft_cap(n, settings["maxNameLength"])
 
-def massage_subtype(base_path, name_lower):
+
+def massage_subtype(base_path, name_lower):  # type: ignore
     """Вспомогательная функция."""
     for rule in massage_subtype_rules:
         if any(k in name_lower for k in rule["includes"]):
             return rule["path"]
     return base_path
 
-def extend_permanent(base_path, name_lower):
+
+def extend_permanent(base_path, name_lower):  # type: ignore
     """Вспомогательная функция."""
     return f"{base_path}.Коррекция" if "коррекц" in name_lower else base_path
 
-def count_matches(s, arr):
+
+def count_matches(s, arr):  # type: ignore
     """Вспомогательная функция."""
     return sum(k in s for k in arr)
 
 
-def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
+def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):  # type: ignore
     """Возвращает True/False. Если передан checkpoints (list), добавляет пояснения."""
-    
-    def cp(msg):
+
+    def cp(msg):  # type: ignore
         """Вспомогательная функция."""
         if checkpoints is not None:
             checkpoints.append(msg)
@@ -126,7 +178,9 @@ def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
 
     sizePattern = re.search(r"\b(xs\+?|s|m\+?|m\s*\+|l\+?|l)\b", name_lower, flags=re.I)
     comboPattern = re.search(r"\(.+\+.+\)", name_lower)
-    cp(f"is_laser_epilation_complex: sizePattern={bool(sizePattern)}, comboPattern={bool(comboPattern)}")
+    cp(
+        f"is_laser_epilation_complex: sizePattern={bool(sizePattern)}, comboPattern={bool(comboPattern)}"
+    )
 
     if not (sizePattern or comboPattern):
         cp("is_laser_epilation_complex: no size/combo pattern -> False")
@@ -136,13 +190,14 @@ def is_laser_epilation_complex(name_lower, svc_lower, checkpoints=None):
     return True
 
 
-def classify(product_name, service_value, description, debug: bool = False):
+def classify(product_name, service_value, description, debug: bool = False):  # type: ignore
     """Возвращает категорию. Если debug=True возвращает dict {'category':..., 'checkpoints':[...]}.
-    
+
     Контрольные точки добавлены на всех ключевых шагах.
     """
     checkpoints = []
-    def cp(msg):
+
+    def cp(msg):  # type: ignore
         checkpoints.append(msg)
 
     svc_lower = to_lower(service_value)
@@ -150,8 +205,12 @@ def classify(product_name, service_value, description, debug: bool = False):
     desc_lower = to_lower(description)
     all_lower = f"{name_lower} {svc_lower} {desc_lower}"
 
-    cp(f"INPUT: product_name='{product_name}' | service_value='{service_value}' | description='{description}'")
-    cp(f"LOWER: name_lower='{name_lower}' | svc_lower='{svc_lower}' | desc_lower='{desc_lower}'")
+    cp(
+        f"INPUT: product_name='{product_name}' | service_value='{service_value}' | description='{description}'"
+    )
+    cp(
+        f"LOWER: name_lower='{name_lower}' | svc_lower='{svc_lower}' | desc_lower='{desc_lower}'"
+    )
 
     category = None
 
@@ -171,8 +230,13 @@ def classify(product_name, service_value, description, debug: bool = False):
             category = massage_subtype(category, name_lower)
             cp(f"massage_subtype applied: '{old}' -> '{category}'")
 
-        if category == "Коррекция фигуры.Комплекс" or category == "Коррекция фигуры.Комплексы":
-            cp("service_map category is Коррекция фигуры.Комплексы -> checking laser complex override")
+        if (
+            category == "Коррекция фигуры.Комплекс"
+            or category == "Коррекция фигуры.Комплексы"
+        ):
+            cp(
+                "service_map category is Коррекция фигуры.Комплексы -> checking laser complex override"
+            )
             laser = is_laser_epilation_complex(name_lower, svc_lower, checkpoints)
             cp(f"is_laser_epilation_complex returned {laser}")
             if laser:
@@ -249,7 +313,9 @@ def classify(product_name, service_value, description, debug: bool = False):
     # 9) Course/complex detection (body complexes)
     if not category:
         is_course = bool(re.search(r"(курс|комплекс|программ)", all_lower))
-        has_tech = bool(re.search(r"(lpg|миостимул|кавитац|вакуум|rf|целлюлит)", all_lower))
+        has_tech = bool(
+            re.search(r"(lpg|миостимул|кавитац|вакуум|rf|целлюлит)", all_lower)
+        )
         cp(f"COURSE check: is_course={is_course}, has_tech={has_tech}")
         if is_course and has_tech:
             category = "Коррекция фигуры.Комплексы"
@@ -298,7 +364,7 @@ def classify(product_name, service_value, description, debug: bool = False):
 
 
 # === Тестовая функция ===
-async def test_classification(channel_id: int=2, limit: int = 10):
+async def test_classification(channel_id: int = 2, limit: int = 10):  # type: ignore
     """Тестирует классификацию без обновления таблицы.
 
     Выводит результаты в консоль.
@@ -308,13 +374,21 @@ async def test_classification(channel_id: int=2, limit: int = 10):
         rows = await conn.fetch(
             "SELECT product_id, product_name, service_value, description "
             "FROM products WHERE channel_id=$1 LIMIT $2",
-            channel_id, limit
+            channel_id,
+            limit,
         )
 
-        logger.info(f"🔍 Тест классификации для channel_id={channel_id} (первые {limit} записей):\n")
+        logger.info(
+            f"🔍 Тест классификации для channel_id={channel_id} (первые {limit} записей):\n"
+        )
 
         for r in rows:
-            category = classify(r["product_name"], r["service_value"], r["description"] or "", debug=False)
+            category = classify(
+                r["product_name"],
+                r["service_value"],
+                r["description"] or "",
+                debug=False,
+            )
             display_name = sanitize_name(r["product_name"])
             full_name = f"{category} - {display_name}"
 

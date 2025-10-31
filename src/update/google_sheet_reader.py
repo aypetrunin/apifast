@@ -2,11 +2,12 @@
 
 import asyncio
 import os
+from typing import Any, Type
 
 import gspread
 import gspread.exceptions
 
-from ..common import logger, retry_async
+from ..common import logger, retry_async  # type: ignore
 
 SERVICE_ACCOUNT_FILE = os.path.join(
     os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
@@ -17,8 +18,11 @@ class UniversalGoogleSheetReader:
     """Класс универсального чтения из GoogleSheet."""
 
     def __init__(
-        self, spreadsheet_url, sheet_name, service_account_file=SERVICE_ACCOUNT_FILE
-    ):
+        self,
+        spreadsheet_url: str,
+        sheet_name: str,
+        service_account_file: str = SERVICE_ACCOUNT_FILE,
+    ) -> None:
         """Конструктор класса.
 
         Сохраняет параметры подключения к Google Sheet:
@@ -32,7 +36,7 @@ class UniversalGoogleSheetReader:
         self.service_account_file = service_account_file
 
     @retry_async()
-    async def _init_google_client(self):
+    async def _init_google_client(self) -> None:
         """Инициализации Google Sheets API клиента.
 
         Асинхронный метод инициализации Google Sheets API клиента
@@ -40,7 +44,7 @@ class UniversalGoogleSheetReader:
         """
         await self._real_init()
 
-    async def _real_init(self):
+    async def _real_init(self) -> None:
         """Внутренняя асинхронная инициализация.
 
         - аутентификация сервисным аккаунтом,
@@ -63,7 +67,7 @@ class UniversalGoogleSheetReader:
             logger.error(f"Unexpected error during Google Sheets initialization: {e}")
             raise
 
-    async def _get_all_rows_async(self) -> list[dict]:
+    async def _get_all_rows_async(self) -> list[dict[str, Any]]:
         """Асинхронный метод считывания всех строк с листа Google Sheets.
 
         Использует asyncio.to_thread для выполнения синхронного метода get_all_values
@@ -85,7 +89,7 @@ class UniversalGoogleSheetReader:
             return []
 
     @retry_async()
-    async def get_all_rows(self) -> list[dict]:
+    async def get_all_rows(self) -> list[dict[str, Any]]:
         """Асинхронный метод для получения всех строк.
 
         Запускает асинхронный метод _get_all_rows_async с retry_request
@@ -95,8 +99,11 @@ class UniversalGoogleSheetReader:
 
     @classmethod
     async def create(
-        cls, spreadsheet_url, sheet_name, service_account_file=SERVICE_ACCOUNT_FILE
-    ):
+        cls: Type["UniversalGoogleSheetReader"],
+        spreadsheet_url: str,
+        sheet_name: str,
+        service_account_file: str = SERVICE_ACCOUNT_FILE,
+    ) -> "UniversalGoogleSheetReader":
         """Асинхронный фабричный метод для создания и полной асинхронной инициализации экземпляра.
 
         Позволяет создавая объект сразу получить готовый к работе экземпляр.

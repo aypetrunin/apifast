@@ -1,11 +1,12 @@
 """Модуль реализует ретриверы по коллекциям 'faq', 'srvices', 'zena2_services_key'-вспомогательной коллекции."""
 
 import asyncio
+from typing import Any
 
 from qdrant_client import models
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
@@ -47,7 +48,7 @@ DATABASE_FIELDS = {
 # ===============================================================
 async def points_to_dict(
     points: list[models.PointStruct], database_name: str
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Преобразует список объектов Qdrant (PointStruct) в список словарей с данными из payload.
 
     Аргументы:
@@ -60,7 +61,8 @@ async def points_to_dict(
     fields = DATABASE_FIELDS.get(database_name, [])
     result = []
     for point in points:
-        payload = {field: point.payload.get(field) for field in fields}
+        payload_dict = point.payload or {}
+        payload = {field: payload_dict.get(field) for field in fields}
         payload["id"] = point.id  # добавляем ID точки
         result.append(payload)
     return result
@@ -75,7 +77,7 @@ async def retriver_hybrid_async(
     channel_id: int | None = None,
     hybrid: bool = True,
     limit: int = 5,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Асинхронный поиск в Qdrant.
 
     Асинхронный поиск в Qdrant с поддержкой:
@@ -95,7 +97,7 @@ async def retriver_hybrid_async(
         Список словарей с найденными объектами из Qdrant.
     """
 
-    async def _retriever_logic():
+    async def _retriever_logic() -> list[dict[str, Any]]:
         """Логика ретривера."""
         # -------------------------------------------------------
         # 1️⃣ Генерация dense-вектора через OpenAI Ada
@@ -171,7 +173,7 @@ async def retriver_hybrid_async(
 # ===============================================================
 if __name__ == "__main__":
 
-    async def main():
+    async def main() -> None:
         """Тестовый пример поиска в двух коллекциях Qdrant.
 
         1. FAQ — поиск по тексту вопроса/ответа

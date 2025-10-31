@@ -3,8 +3,8 @@
 import asyncio
 import inspect
 import random
-from typing import Awaitable, Callable, TypeVar, Any, Union, Sequence
 from collections.abc import Iterator
+from typing import Any, Awaitable, Callable, Sequence, TypeVar, Union
 
 import httpx
 from fastembed.sparse.bm25 import Bm25
@@ -12,10 +12,11 @@ from openai import AsyncOpenAI
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from qdrant_client import AsyncQdrantClient, models
 
-from ..common import logger
-from ..settings import settings
+# Свои модули
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 # -------------------- Config --------------------
 # Конфигурация для OpenAI, Qdrant и Postgres
@@ -55,6 +56,7 @@ async def retry_request(
     backoff: float = 2.0,
     **kwargs: Any,
 ) -> T:
+    """Функция повтора."""
     for attempt in range(1, retries + 1):
         try:
             result = func(*args, **kwargs)
@@ -71,6 +73,7 @@ async def retry_request(
             )
             await asyncio.sleep(wait)
     assert False, "Unreachable: All attempts failed but no exception was thrown"
+
 
 # Универсальная функция с повторной попыткой для асинхронных/синхронных функций
 # async def retry_request(
@@ -100,6 +103,7 @@ async def retry_request(
 #             await asyncio.sleep(wait)
 #     # Добавьте этот return, чтобы у функции всегда был return:
 #     assert False, "Unreachable: All attempts failed but no exception was thrown"
+
 
 # -------------------- Batch helper --------------------
 # Генератор для разбиения любого итерируемого объекта на батчи заданного размера
@@ -134,8 +138,7 @@ async def embed_texts(
 
 # Обертка для стандартной модели ada
 async def ada_embeddings(
-        texts: list[str],
-        model: str = "text-embedding-ada-002"
+    texts: list[str], model: str = "text-embedding-ada-002"
 ) -> list[list[float]]:
     """Обертка для стандартной модели ada."""
     return await embed_texts(texts, model=model)
@@ -196,7 +199,6 @@ async def reset_collection(
                 ),
             )
             logger.info(f'Индекс "{field}" создан.')
-
 
     # if text_index_fields:
     #     default_text_index_params = {

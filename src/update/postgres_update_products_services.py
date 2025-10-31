@@ -1,11 +1,12 @@
 """Модуль реализует обновление таблицы products_services."""
 
 import asyncio
+from typing import Any
 
 import asyncpg
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 from .qdrant_create_services import qdrant_create_services_async
 from .qdrant_retriever_faq_services import retriver_hybrid_async
 
@@ -93,8 +94,10 @@ async def update_products_services(
 
 
 async def _fetch_service_id(
-    product: dict, channel_id: int, semaphore: asyncio.Semaphore
-) -> tuple | None:
+    product: dict[str, Any],
+    channel_id: int,
+    semaphore: asyncio.Semaphore,
+) -> tuple[str, int] | None:
     """Получает service_id для данного продукта из векторной базы Qdrant.
 
     Использует semaphore для ограничения количества параллельных запросов.

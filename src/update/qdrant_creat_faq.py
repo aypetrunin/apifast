@@ -12,12 +12,13 @@
 
 import asyncio
 from typing import Any
+
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели для работы с точками Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 
 # Импорт общих клиентов и функций из модуля zena_qdrant
 from .qdrant_common import (
@@ -86,10 +87,8 @@ async def faq_load_from_postgres() -> list[dict[str, Any]]:
 
 # -------------------- Загрузка FAQ в Qdrant --------------------
 async def fill_collection_faq(
-        docs: list[dict[str, Any]],
-        collection_name: str,
-        batch_size: int = 64
- ) -> None:
+    docs: list[dict[str, Any]], collection_name: str, batch_size: int = 64
+) -> None:
     """Загружает FAQ в коллекцию Qdrant.
 
     Для каждой записи создаются два типа эмбеддингов:

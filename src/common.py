@@ -24,7 +24,7 @@ def retry_async(
     backoff: float = 2.0,
     jitter: float = 1.0,
     exceptions: tuple[type[Exception], ...] = (Exception,),
-):
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Декоратор для асинхронных ретраев с экспоненциальным бэкоффом и равномерным джиттером.
 
     Args:

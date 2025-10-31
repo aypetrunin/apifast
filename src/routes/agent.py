@@ -1,14 +1,15 @@
 """Модуль создания endpointa '/agent/run' - агента-бота."""
 
 import time
+from typing import Any
 
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from ..common import logger
-from ..deps import langgraph_client
-from ..requests.httpservice import sent_message_to_history
-from ..schemas import AgentRunParams
+from ..common import logger  # type: ignore
+from ..deps import langgraph_client  # type: ignore
+from ..requests.httpservice import sent_message_to_history  # type: ignore
+from ..schemas import AgentRunParams  # type: ignore
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -21,7 +22,7 @@ class PayloadError(ValueError):
 
 def build_messages_and_context(
     params: "AgentRunParams",
-):
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Функция получения переменных из входных данных endpointa."""
     if not params.message or not isinstance(params.message, str):
         raise PayloadError("message must be a non-empty string")
@@ -40,7 +41,7 @@ def build_messages_and_context(
 
 
 @router.post("/run")
-async def run_sync(params: AgentRunParams):
+async def run_sync(params: AgentRunParams) -> JSONResponse:
     """Определение endpoint."""
     t0 = time.perf_counter()
     messages = None

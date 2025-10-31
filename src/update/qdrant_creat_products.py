@@ -1,13 +1,14 @@
 """Модуль реализует процесс создания коллекции для поиска услуг/продуктов."""
 
 import asyncio
+from typing import Any
 
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели для работы с Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Dense embeddings через OpenAI
     batch_iterable,  # Генератор для разбивки на батчи
@@ -32,7 +33,7 @@ TEXT_INDEX_FIELDS = [
 
 
 # -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_products_async():
+async def qdrant_create_products_async() -> bool:
     """Главная функция для создания коллекции продуктов в Qdrant.
 
     1. Загружает продукты из Postgres
@@ -63,7 +64,7 @@ async def qdrant_create_products_async():
 
 
 # -------------------- Загрузка продуктов из Postgres --------------------
-async def products_load_from_postgres():
+async def products_load_from_postgres() -> list[dict[str, Any]]:
     """Загружает все продукты и услуги из представления product_service_view в Postgres.
 
     Возвращает список словарей, где каждая запись содержит все колонки из представления.
@@ -77,7 +78,9 @@ async def products_load_from_postgres():
 
 
 # -------------------- Загрузка продуктов в Qdrant --------------------
-async def fill_collection_products(docs, collection_name, batch_size=64):
+async def fill_collection_products(
+    docs: list[dict[str, Any]], collection_name: str, batch_size: int = 64
+) -> None:
     """Загружает данные о продуктах в коллекцию Qdrant.
 
     Для каждой записи создаются два вида эмбеддингов:

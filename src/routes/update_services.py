@@ -5,18 +5,22 @@ import time
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from ..common import logger
-from ..update.postgres_common import is_channel_id
-from ..update.postgres_update_products_services import update_products_services
-from ..update.postgres_update_services_from_sheet import update_services_from_sheet
-from ..update.qdrant_creat_products import qdrant_create_products_async
-from ..update.qdrant_create_services import qdrant_create_services_async
+from ..common import logger  # type: ignore
+from ..update.postgres_common import is_channel_id  # type: ignore
+from ..update.postgres_update_products_services import (
+    update_products_services,  # type: ignore
+)
+from ..update.postgres_update_services_from_sheet import (
+    update_services_from_sheet,  # type: ignore
+)
+from ..update.qdrant_creat_products import qdrant_create_products_async  # type: ignore
+from ..update.qdrant_create_services import qdrant_create_services_async  # type: ignore
 
 router = APIRouter(prefix="/update", tags=["update"])
 
 
 @router.post("/services")
-async def update_services(channel_id: int, update: bool = False):
+async def update_services(channel_id: int, update: bool = False) -> JSONResponse:
     """Определение endpoint."""
     try:
         t0 = time.perf_counter()

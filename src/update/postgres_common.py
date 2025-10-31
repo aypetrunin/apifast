@@ -4,7 +4,7 @@ import asyncio
 
 import asyncpg
 
-from ..settings import settings
+from ..settings import settings  # type: ignore
 
 POSTGRES_CONFIG = settings.postgres_config
 

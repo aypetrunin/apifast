@@ -6,15 +6,16 @@
 import asyncio
 
 import asyncpg
+from asyncpg import Connection
 
-from ..common import logger
-from ..settings import settings
+from ..common import logger  # type: ignore
+from ..settings import settings  # type: ignore
 from .postgres_products_utils import classify, sanitize_name
 
 
-async def update_products(channel_id: int):
+async def update_products(channel_id: int) -> str:
     """Функция обновления полей product_full_name, product_unid_ean."""
-    conn = await asyncpg.connect(**settings.postgres_config)
+    conn: Connection = await asyncpg.connect(**settings.postgres_config)
     try:
         if channel_id == 1:
             result = await _update_products_channel1(conn, channel_id)
@@ -28,7 +29,7 @@ async def update_products(channel_id: int):
         await conn.close()
 
 
-async def _update_products_channel1(conn, channel_id: int):
+async def _update_products_channel1(conn: Connection, channel_id: int) -> str:
     """Обновление продуктов для София (channel_id=1)."""
     result = await conn.execute(
         """
@@ -43,7 +44,7 @@ async def _update_products_channel1(conn, channel_id: int):
     return result
 
 
-async def _update_products_channel2(conn, channel_id: int):
+async def _update_products_channel2(conn: Connection, channel_id: int) -> str:
     """Обновление продуктов для Алиса (channel_id=2)."""
     rows = await conn.fetch(
         """
