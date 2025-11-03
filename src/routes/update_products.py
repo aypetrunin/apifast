@@ -7,9 +7,8 @@ from fastapi.responses import JSONResponse
 
 from ..common import logger  # type: ignore
 from ..update.postgres_common import is_channel_id  # type: ignore
-from ..update.postgres_update_products_services import (
-    update_products_services,  # type: ignore
-)
+from ..update.postgres_update_products_services import update_products_services  # type: ignore
+from ..update.postgres_update_products import update_products_fields   # type: ignore
 from ..update.qdrant_creat_products import qdrant_create_products_async  # type: ignore
 
 router = APIRouter(prefix="/update", tags=["update"])
@@ -30,6 +29,14 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
 
         if not await is_channel_id(channel_id):
             msg = f"Нет фирмы с channel_id = {channel_id}"
+            logger.info(msg)
+            return JSONResponse(
+                content={"success": False, "exception": msg},
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not await update_products_fields(channel_id):
+            msg = f"Ошибка обновления полей в таблице products для channel_id = {channel_id}"
             logger.info(msg)
             return JSONResponse(
                 content={"success": False, "exception": msg},

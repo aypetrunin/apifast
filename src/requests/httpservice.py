@@ -93,7 +93,7 @@ async def _sent_message_to_history(
     except aiohttp.ClientResponseError as e:
         logger.warning(f"HTTP error: {e.status} {e.message}")
         raise
-    except aiohttp.ClientTimeout:  # type: ignore[misc]
+    except (aiohttp.ConnectionTimeoutError, aiohttp.ServerTimeoutError):
         logger.warning("Request timed out")
         raise
     except aiohttp.ClientError as e:

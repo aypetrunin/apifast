@@ -13,18 +13,19 @@ from ..settings import settings  # type: ignore
 from .postgres_products_utils import classify, sanitize_name
 
 
-async def update_products(channel_id: int) -> str:
+async def update_products_fields(channel_id: int) -> bool:
     """Функция обновления полей product_full_name, product_unid_ean."""
     conn: Connection = await asyncpg.connect(**settings.postgres_config)
+    result = ''
     try:
-        if channel_id == 1:
+        if channel_id in [1, 5, 6, 7, 17, 18]:
             result = await _update_products_channel1(conn, channel_id)
-        elif channel_id in [2, 5, 6]:
+        else :
             result = await _update_products_channel2(conn, channel_id)
-        else:
-            result = f"❌ Не поддерживается channel_id={channel_id}"
+
         logger.info(f"✅ Обновлено записей для channel_id={channel_id}: {result}")
-        return result
+
+        return bool(result)
     finally:
         await conn.close()
 
@@ -76,7 +77,7 @@ async def _update_products_channel2(conn: Connection, channel_id: int) -> str:
 
 if __name__ == "__main__":
     """Тест запуска функции обновления FAQ для канала с id=1."""
-    asyncio.run(update_products(1))
+    asyncio.run(update_products_fields(1))
 
 # Запуск для проверки
 # cd /home/copilot_superuser/petrunin/zena/apifast

@@ -1,5 +1,5 @@
 """Модуль в котором реализованы ретриверы по коллекции 'zena2_products_services_view'."""
-
+import asyncio
 from typing import Any
 
 from qdrant_client import models
@@ -17,6 +17,7 @@ from qdrant_client.http.models import (
 )
 
 from ..settings import settings  # type: ignore
+from ..common import logger
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
@@ -41,6 +42,8 @@ def points_to_list(points: list[Record] | list[ScoredPoint]) -> list[dict[str, A
     Возвращает:
         Список словарей, содержащих поля продукта: имя, тип, длительность, цена и т.д.
     """
+    # logger.info(f"points:\n{points}")
+    # logger.info(f"hasattr(points, 'points'): {hasattr(points, 'points')}")
     # Определяем тип ScoredPoint по наличию атрибута points.
     if hasattr(points, "points"):
         points = points.points
@@ -70,6 +73,7 @@ def points_to_list(points: list[Record] | list[ScoredPoint]) -> list[dict[str, A
                 else None,
             }
         )
+    # logger.info(result)
     return result
 
 
@@ -206,7 +210,7 @@ def make_filter(
 
     if channel_id:
         must.append(
-            FieldCondition(key="channel_id", match=MatchValue(value=channel_id))
+            FieldCondition(key="channel_id", match=MatchValue(value=int(channel_id)))
         )
 
     if indications:
@@ -333,7 +337,7 @@ async def retriever_product_hybrid_async(
         product_type=product_type,
         use_should=True,
     )
-
+    logger.info(f"query_filter: {query_filter}")
     async def _logic() -> list[dict[str, Any]]:
         if query:
             # --- Генерация векторов ---
@@ -372,5 +376,15 @@ async def retriever_product_hybrid_async(
     return await retry_request(_logic)
 
 
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.qdrant.qdrant_retriver_product
+if __name__ == "__main__":
+    # Асинхронный запуск основной функции
+    asyncio.run(
+        retriever_product_hybrid_async(
+            channel_id=1,
+            query='массаж',
+        )
+    )
+
+
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update.qdrant_retriever_product

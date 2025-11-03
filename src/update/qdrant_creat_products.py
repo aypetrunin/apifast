@@ -56,7 +56,7 @@ async def qdrant_create_products_async() -> bool:
     await fill_collection_products(docs, QDRANT_COLLECTION)
 
     # Шаг 4: Проверка поиска (пример запроса)
-    results = await retriever_product_hybrid_async("1", "массаж")
+    results = await retriever_product_hybrid_async(1, "массаж")
     logger.info(f"Найдено результатов: {len(results)}")
 
     # Возвращаем True, если хотя бы один результат найден
@@ -132,5 +132,5 @@ if __name__ == "__main__":
     asyncio.run(qdrant_create_products_async())
 
 
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.qdrant.qdrant_creat_products
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update.qdrant_creat_products
