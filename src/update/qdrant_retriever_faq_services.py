@@ -179,23 +179,34 @@ if __name__ == "__main__":
         1. FAQ — поиск по тексту вопроса/ответа
         2. Services — поиск по услугам с фильтрацией по каналу
         """
-        # --- Поиск по базе FAQ ---
-        results_faq = await retriver_hybrid_async(
-            query="Абонент", database_name=QDRANT_COLLECTION_FAQ, channel_id=2
-        )
-        logger.info("📘 FAQ results:")
-        logger.info(results_faq)
+        # # --- Поиск по базе FAQ ---
+        # results_faq = await retriver_hybrid_async(
+        #     query="Абонент", database_name=QDRANT_COLLECTION_FAQ, channel_id=2
+        # )
+        # logger.info("📘 FAQ results:")
+        # logger.info(results_faq)
+
+        # # --- Поиск по базе услуг ---
+        # results_services = await retriver_hybrid_async(
+        #     query="Тейпирование", database_name=QDRANT_COLLECTION_SERVICES, channel_id=2
+        # )
+        # logger.info("💆 Services results:")
+        # logger.info(results_services)
 
         # --- Поиск по базе услуг ---
-        results_services = await retriver_hybrid_async(
-            query="Тейпирование", database_name=QDRANT_COLLECTION_SERVICES, channel_id=2
+        results_temp = await retriver_hybrid_async(
+            query="Лазерная эпиляция.Прайс Алисы Викторовны - L+ (подмышки + глубокое бикини + ноги полностью + руки полностью + белая линия живота)",
+            database_name=QDRANT_COLLECTION_TEMP,
+            channel_id=2,
+            hybrid=True,
         )
-        logger.info("💆 Services results:")
-        logger.info(results_services)
-
+        logger.info("💆 Temp result:")
+        # logger.info(results_temp)
+        for res in results_temp:
+            print(res)
     # Запускаем асинхронный тест
     asyncio.run(main())
 
 
-# cd /home/copilot_superuser/petrunin/mcp
-#  uv run python -m zena_qdrant.qdrant.qdrant_retriver_faq_services
+# cd /home/copilot_superuser/petrunin/zena/apifast
+# uv run python -m src.update.qdrant_retriever_faq_services

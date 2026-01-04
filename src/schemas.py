@@ -1,25 +1,50 @@
 """Модель параметров передаваемых агенту."""
 
-from typing import Any, Dict
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, model_validator
 
+from .common import logger
 
 class AgentRunParams(BaseModel):
     """Плоские поля из входного JSON."""
 
     user_id: int
-    message: str
     reply_to_history_id: int
     user_companychat: int | str
     access_token: str
+    mcp_port: int
 
-    # опциональные, встречаются не всегда
     group_id: int | str | None = None
     platform: str | None = None
-    keyboard: Dict[str, Any] | None = None
+    keyboard: dict[str, Any] | None = None
 
-    # служебные поля для вашего пайплайна
-    assistant_id: str | None = Field(default="agent_zena")
-    config: Dict[str, Any] | None = None
-    metadata: Dict[str, Any] | None = None
+    message: str
+    assistant_id: str | None = None
+    config: dict[str, Any] | None = None
+    context: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_assistant_id_by_mcp_port(cls, values):
+        logger.info(f"values={values}")
+        logger.info(f"mcp_port={values.get('mcp_port')}")
+        mcp_port = values.get('mcp_port') or 5007
+        assistant_id = f"agent_zena_{mcp_port}"
+
+        values.update({
+            'context': {
+                "_user_id": values.get('user_id'),
+                "_reply_to_history_id": values.get('reply_to_history_id'),
+                "_user_companychat": values.get('user_companychat'),
+                "_access_token": values.get('access_token'),
+                "_group_id": values.get('group_id'),
+                "_platform": values.get('platform'),
+            },
+            'mcp_port': mcp_port,
+            'assistant_id': assistant_id
+        })
+        logger.info(f"mcp_port={mcp_port}")
+        logger.info(f"assistant_id={assistant_id}")
+        return values

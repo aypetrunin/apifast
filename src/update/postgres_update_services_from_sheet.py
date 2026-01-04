@@ -60,11 +60,12 @@ async def update_services_from_sheet(
 
             # Удаление связанных записей из products_services
             if ids_to_delete:
-                await conn.execute(
+                logger.info("Удаление в таблице 'products_services'.")
+                result = await conn.execute(
                     "DELETE FROM products_services WHERE service_id = ANY($1::int[])",
                     ids_to_delete,
                 )
-
+                logger.info(f"Удаление в таблице 'products_services'. Удалено - {result}")
             # Удаление старых сервисов для канала
             result = await conn.execute(
                 "DELETE FROM services WHERE channel_id = $1", channel_id
@@ -112,7 +113,7 @@ def _clean_service_row(row: dict[str, Any], channel_id: int) -> tuple[Any, ...]:
     """
     service_name = row.get("service", "").strip()
     body_parts = (
-        (row.get("body_parts", "") or "").replace("\n", " ").replace("\r", " ").strip()
+        (row.get("body_parts", "") or "").replace("\n", ", ").replace("\r", ", ").strip()
     )
 
     return (
@@ -123,8 +124,8 @@ def _clean_service_row(row: dict[str, Any], channel_id: int) -> tuple[Any, ...]:
         row.get("indications"),
         row.get("contraindications"),
         row.get("pre_session_instructions"),
-        (row.get("indications_key") or "").replace("\n", " ").replace("\r", " "),
-        (row.get("contraindications_key") or "").replace("\n", " ").replace("\r", " "),
+        (row.get("indications_key") or "").replace("\n", ", ").replace("\r", ", "),
+        (row.get("contraindications_key") or "").replace("\n", ", ").replace("\r", ", "),
         row.get("mult_score_boosting"),
         body_parts,
     )
@@ -132,9 +133,9 @@ def _clean_service_row(row: dict[str, Any], channel_id: int) -> tuple[Any, ...]:
 
 if __name__ == "__main__":
     """Тест запуска функции обновления services для канала с id=1."""
-    result = asyncio.run(update_services_from_sheet(1))
+    result = asyncio.run(update_services_from_sheet(17))
 
 
 # Запуск для проверки
 # cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update_postgres_qdrant.update_services_from_sheet
+# uv run python -m src.update.postgres_update_services_from_sheet

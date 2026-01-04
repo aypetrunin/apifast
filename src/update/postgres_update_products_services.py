@@ -58,7 +58,7 @@ async def update_products_services(
 
             # Получение продуктов канала
             products = await conn.fetch(
-                "SELECT product_name, article FROM products WHERE channel_id = $1",
+                "SELECT product_full_name as product_name, article FROM products WHERE channel_id = $1",
                 channel_id,
             )
             # Параллельный сбор service_id для продуктов с ограничением

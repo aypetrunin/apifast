@@ -10,6 +10,7 @@ from src.settings import settings
 from src.routes.agent import router as agent_router
 from src.routes.health import router as health_router
 from src.routes.update_faq import router as update_faq_router
+from src.routes.update_promo import router as update_promo_router
 from src.routes.update_services import router as update_services_router
 from src.routes.update_products import router as update_product
 
@@ -40,6 +41,7 @@ app.add_middleware(
 )
 app.include_router(agent_router)
 app.include_router(update_faq_router)
+app.include_router(update_promo_router)
 app.include_router(update_services_router)
 app.include_router(update_product)
 app.include_router(health_router)

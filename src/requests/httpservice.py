@@ -87,6 +87,7 @@ async def _sent_message_to_history(
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             # async with session.post(url, json=payload, headers=headers) as resp:
+            logger.info("===_sent_message_to_history===")
             async with session.post(url, json=payload) as resp:
                 resp.raise_for_status()
                 return await resp.json()

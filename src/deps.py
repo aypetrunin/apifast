@@ -7,7 +7,7 @@ from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
 
 from .settings import settings
-
+from .common import logger
 
 @asynccontextmanager
 async def langgraph_client() -> AsyncGenerator[LangGraphClient, None]:

@@ -85,7 +85,7 @@ async def services_load_from_postgres(
         if channel_id is not None:
             rows = await conn.fetch(
                 """
-                SELECT channel_id, id, services_name, description,
+                SELECT channel_id, id, services_full_name as services_name, description,
                     indications, contraindications, pre_session_instructions, body_parts
                 FROM services
                 WHERE channel_id = $1
@@ -94,7 +94,7 @@ async def services_load_from_postgres(
             )
         else:
             rows = await conn.fetch("""
-                SELECT channel_id, id, services_name, description,
+                SELECT channel_id, id, services_full_name as services_name, description,
                     indications, contraindications, pre_session_instructions, body_parts
                 FROM services
             """)
