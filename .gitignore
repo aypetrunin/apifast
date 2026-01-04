@@ -138,3 +138,7 @@ __pycache__/
 
 # secrets
 src/update_postgres_qdrant/*.json
+
+# service account keys (never commit)
+aiucopilot-*.json
+src/**/aiucopilot-*.json
