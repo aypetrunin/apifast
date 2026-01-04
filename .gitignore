@@ -135,3 +135,6 @@ venv.bak/
 *.DS_Store
 Thumbs.db
 __pycache__/
+
+# secrets
+src/update_postgres_qdrant/*.json
