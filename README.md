@@ -52,3 +52,6 @@ deactivate
 cd /home/copilot_superuser/petrunin/zena/apifast
 source .venv/bin/activate
 uvicorn main:app --reload --host 0.0.0.0 --port 3025
+
+
+
