@@ -1,0 +1,10 @@
+services:
+  apifast:
+    image: ${APIFAST_IMAGE}
+    env_file:
+      - ../deploy/prod.env
+    ports:
+      - "${APIFAST_PORT}:3024"
+    restart: unless-stopped
+    networks:
+      - zena-network

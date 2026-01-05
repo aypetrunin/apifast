@@ -1,0 +1,15 @@
+services:
+  apifast:
+    build: .
+    image: "zena_apifast:${ENV}"
+    env_file:
+      - ../deploy/dev.env
+    ports:
+      - "${APIFAST_PORT}:3024"
+    volumes:
+      - ./src:/app/src
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+    restart: unless-stopped
+    networks:
+      - zena-network
