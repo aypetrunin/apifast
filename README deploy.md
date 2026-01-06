@@ -4,18 +4,21 @@
 > Важно: теги создаём **в репозиториях сервисов**, не в root `zena`.
 
 
-# A) Релиз `mcpserver` → `v1.0.2`
+# A) Релиз `apifast` → `v1.0.2`
 
 ## A1) Обнови main и посмотри SHA
-
 ```bash
-cd ~/petrunin/zena/mcpserver
+cd ~/petrunin/zena/apifast
 git checkout main
 git pull
 git rev-parse --short HEAD
 git log -1 --oneline
 ```
-
+## A3) Проверь, что тег появился (на машине деплоя)
+```bash
+docker pull ghcr.io/aypetrunin/apifast:v1.0.2
+docker images ghcr.io/aypetrunin/apifast
+```
 
 ---
 

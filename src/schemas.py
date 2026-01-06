@@ -1,6 +1,6 @@
 """Модель параметров передаваемых агенту."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, model_validator
 
@@ -26,7 +26,8 @@ class AgentRunParams(BaseModel):
     context: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
 
-    agent = {
+    # ВАЖНО: ClassVar => это НЕ поле модели, Pydantic не будет ругаться
+    agent: ClassVar[dict[str, list[int]]] = {
         "agent_zena_alisa": [5001, 15001],
         "agent_zena_sofia": [5002, 15002],
         "agent_zena_anisa": [5005, 15005],
@@ -44,7 +45,11 @@ class AgentRunParams(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def set_assistant_id_by_mcp_port(cls, values: dict):
+    def set_assistant_id_by_mcp_port(cls, values: Any):
+        # values должен быть dict на стадии before
+        if not isinstance(values, dict):
+            return values
+
         logger.info(f"values={values}")
 
         mcp_port = values.get("mcp_port") or 5007
