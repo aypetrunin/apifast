@@ -6,6 +6,7 @@ from pydantic import BaseModel, model_validator
 
 from .common import logger
 
+
 class AgentRunParams(BaseModel):
     """Плоские поля из входного JSON."""
 
@@ -25,26 +26,46 @@ class AgentRunParams(BaseModel):
     context: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
 
+    agent = {
+        "agent_zena_alisa": [5001, 15001],
+        "agent_zena_sofia": [5002, 15002],
+        "agent_zena_anisa": [5005, 15005],
+        "agent_zena_annitta": [5006, 15006],
+        "agent_zena_anastasia": [5007, 15007],
+        "agent_zena_alena": [5020, 15020],
+    }
+
+    @classmethod
+    def get_agent_by_mcp_port(cls, mcp_port: int) -> str:
+        for agent_name, ports in cls.agent.items():
+            if mcp_port in ports:
+                return agent_name
+        raise ValueError(f"Agent not found for mcp_port={mcp_port}")
+
     @model_validator(mode="before")
     @classmethod
-    def set_assistant_id_by_mcp_port(cls, values):
+    def set_assistant_id_by_mcp_port(cls, values: dict):
         logger.info(f"values={values}")
-        logger.info(f"mcp_port={values.get('mcp_port')}")
-        mcp_port = values.get('mcp_port') or 5007
-        assistant_id = f"agent_zena_{mcp_port}"
 
-        values.update({
-            'context': {
-                "_user_id": values.get('user_id'),
-                "_reply_to_history_id": values.get('reply_to_history_id'),
-                "_user_companychat": values.get('user_companychat'),
-                "_access_token": values.get('access_token'),
-                "_group_id": values.get('group_id'),
-                "_platform": values.get('platform'),
-            },
-            'mcp_port': mcp_port,
-            'assistant_id': assistant_id
-        })
+        mcp_port = values.get("mcp_port") or 5007
         logger.info(f"mcp_port={mcp_port}")
+
+        assistant_id = cls.get_agent_by_mcp_port(mcp_port)
+
+        values.update(
+            {
+                "context": {
+                    "_user_id": values.get("user_id"),
+                    "_reply_to_history_id": values.get("reply_to_history_id"),
+                    "_user_companychat": values.get("user_companychat"),
+                    "_access_token": values.get("access_token"),
+                    "_group_id": values.get("group_id"),
+                    "_platform": values.get("platform"),
+                },
+                "mcp_port": mcp_port,
+                "assistant_id": assistant_id,
+            }
+        )
+
         logger.info(f"assistant_id={assistant_id}")
         return values

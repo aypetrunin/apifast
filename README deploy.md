@@ -3,6 +3,20 @@
 
 > Важно: теги создаём **в репозиториях сервисов**, не в root `zena`.
 
+
+# A) Релиз `mcpserver` → `v1.0.2`
+
+## A1) Обнови main и посмотри SHA
+
+```bash
+cd ~/petrunin/zena/mcpserver
+git checkout main
+git pull
+git rev-parse --short HEAD
+git log -1 --oneline
+```
+
+
 ---
 
 # A) Релиз `langgraph` → `v1.0.1`
@@ -22,8 +36,8 @@ git log -1 --oneline
 ## A2) Создай и запушь тег `v1.0.1`
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 ➡️ Это должно запустить GitHub Actions в **репозитории langgraph** и опубликовать:
@@ -67,7 +81,7 @@ git push origin v1.0.1
 ## B3) Проверь, что тег появился
 
 ```bash
-docker pull ghcr.io/aypetrunin/mcpserver:v1.0.1
+docker pull ghcr.io/aypetrunin/mcpserver:v1.0.2
 docker images ghcr.io/aypetrunin/mcpserver
 ```
 
@@ -87,7 +101,7 @@ MCPSERVER_IMAGE=ghcr.io/aypetrunin/mcpserver:v1.0.1
 ```bash
 cd ~/petrunin/zena
 git add deploy/prod.env
-git commit -m "Release langgraph & mcpserver v1.0.1"
+git commit -m "Release mcpserver v1.0.2"
 git push
 ```
 
