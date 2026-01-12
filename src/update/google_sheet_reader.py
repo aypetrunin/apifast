@@ -13,7 +13,7 @@ from ..common import logger, retry_async  # type: ignore
 # SERVICE_ACCOUNT_FILE = os.path.join(
 #     os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
 # )
-BASE_DIR = Path(__file__).resolve().parents[1]  # корень проекта
+BASE_DIR = Path(__file__).resolve().parents[2]  # корень проекта
 SERVICE_ACCOUNT_FILE = BASE_DIR / "deploy" / "aiucopilot-d6773dc31cb0.json"
 
 
