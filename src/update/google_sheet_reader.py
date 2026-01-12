@@ -3,6 +3,7 @@
 import asyncio
 import os
 from typing import Any, Type
+from pathlib import Path
 
 import gspread
 import gspread.exceptions
@@ -12,14 +13,8 @@ from ..common import logger, retry_async  # type: ignore
 # SERVICE_ACCOUNT_FILE = os.path.join(
 #     os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
 # )
-SERVICE_ACCOUNT_FILE = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "deploy",
-        "aiucopilot-d6773dc31cb0.json",
-    )
-)
+BASE_DIR = Path(__file__).resolve().parents[1]  # корень проекта
+SERVICE_ACCOUNT_FILE = BASE_DIR / "deploy" / "aiucopilot-d6773dc31cb0.json"
 
 
 class UniversalGoogleSheetReader:
