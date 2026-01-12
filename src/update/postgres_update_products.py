@@ -18,10 +18,10 @@ async def update_products_fields(channel_id: int) -> bool:
     conn: Connection = await asyncpg.connect(**settings.postgres_config)
     result = ''
     try:
-        if channel_id in [1, 5, 6, 7, 17, 18]:
-            result = await _update_products_channel1(conn, channel_id)
-        else :
+        if channel_id in [2]:
             result = await _update_products_channel2(conn, channel_id)
+        else :
+            result = await _update_products_channel1(conn, channel_id)
 
         logger.info(f"✅ Обновлено записей для channel_id={channel_id}: {result}")
 
@@ -77,8 +77,11 @@ async def _update_products_channel2(conn: Connection, channel_id: int) -> str:
 
 if __name__ == "__main__":
     """Тест запуска функции обновления FAQ для канала с id=1."""
-    asyncio.run(update_products_fields(1))
+    asyncio.run(update_products_fields(19))
 
 # Запуск для проверки
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update_postgres_qdrant.update_products
+# cd /home/copilot_superuser/petrunin/zena
+# set -a
+# source deploy/dev.env
+# set +a
+# uv run python -m apifast.src.update.postgres_update_products
