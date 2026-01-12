@@ -9,8 +9,16 @@ import gspread.exceptions
 
 from ..common import logger, retry_async  # type: ignore
 
-SERVICE_ACCOUNT_FILE = os.path.join(
-    os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
+# SERVICE_ACCOUNT_FILE = os.path.join(
+#     os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
+# )
+SERVICE_ACCOUNT_FILE = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "deploy",
+        "aiucopilot-d6773dc31cb0.json",
+    )
 )
 
 
