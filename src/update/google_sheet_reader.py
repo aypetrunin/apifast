@@ -13,9 +13,21 @@ from ..common import logger, retry_async  # type: ignore
 # SERVICE_ACCOUNT_FILE = os.path.join(
 #     os.path.dirname(__file__), "aiucopilot-d6773dc31cb0.json"
 # )
-BASE_DIR = Path(__file__).resolve().parents[2]  # корень проекта
-SERVICE_ACCOUNT_FILE = BASE_DIR / "deploy" / "aiucopilot-d6773dc31cb0.json"
+# BASE_DIR = Path(__file__).resolve().parents[2]  # корень проекта
+# SERVICE_ACCOUNT_FILE = BASE_DIR / "deploy" / "aiucopilot-d6773dc31cb0.json"
+SERVICE_ACCOUNT_FILE = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "..",
+        "deploy",
+        "aiucopilot-d6773dc31cb0.json",
+    )
+)
 
+print(SERVICE_ACCOUNT_FILE)
+print(os.path.exists(SERVICE_ACCOUNT_FILE))
 
 class UniversalGoogleSheetReader:
     """Класс универсального чтения из GoogleSheet."""
@@ -114,3 +126,6 @@ class UniversalGoogleSheetReader:
         self = cls(spreadsheet_url, sheet_name, service_account_file)
         await self._init_google_client()
         return self
+
+
+# uv run python -m apifast.src.update.google_sheet_reader
