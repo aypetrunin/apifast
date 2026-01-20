@@ -17,6 +17,7 @@ router = APIRouter(prefix="/update", tags=["update"])
 @router.post("/products")
 async def update_products(channel_id: int, update: bool = False) -> JSONResponse:
     """Определение endpoint."""
+    logger.info("update_products")
     try:
         t0 = time.perf_counter()
         if not update:
@@ -35,6 +36,7 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+        logger.info("update_products_fields")
         if not await update_products_fields(channel_id):
             msg = f"Ошибка обновления полей в таблице products для channel_id = {channel_id}"
             logger.info(msg)
@@ -43,8 +45,9 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+        logger.info("update_products_services")
         if not await update_products_services(channel_id):
-            msg = "Ошибка обновления таблицы products_services - связка products и services."
+            msg = "update_products_services - Ошибка обновления таблицы products_services - связка products и services."
             logger.info(msg)
             return JSONResponse(
                 content={"success": False, "exception": msg},
@@ -52,8 +55,9 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
             )
 
         t1 = time.perf_counter()
+        logger.info("qdrant_create_products_async")
         if not await qdrant_create_products_async():
-            msg = "Ошибка создания коллекции zena2_products_services_view в qdrant."
+            msg = "qdrant_create_products_async - Ошибка создания коллекции zena2_products_services_view в qdrant."
             logger.info(msg)
             return JSONResponse(
                 content={"success": False, "exception": msg},

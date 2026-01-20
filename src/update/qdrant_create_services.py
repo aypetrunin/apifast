@@ -49,18 +49,24 @@ async def qdrant_create_services_async(
     3. Загружает сервисы в коллекцию с эмбеддингами
     4. Проверяет работу поиска через retriver_hybrid_async
     """
+
+    logger.info("qdrant_create_services_async")
+    logger.info("Шаг 1: Загрузка данных из Postgres")
     # Шаг 1: Загрузка данных из Postgres
     docs = await services_load_from_postgres(channel_id=channel_id)
     if not docs:
         logger.warning("Нет данных для загрузки.")
         return False
 
+    logger.info("Шаг 2: Сброс и создание коллекции")
     # Шаг 2: Сброс и создание коллекции
     await reset_collection(qdrant_client, collection_name)
 
+    logger.info("Шаг 3: Загрузка данных в коллекцию")
     # Шаг 3: Загрузка данных в коллекцию
     await fill_collection_services(docs, collection_name)
 
+    logger.info("Шаг 4: Проверка поиска с тестовым запросом")
     # Шаг 4: Проверка поиска с тестовым запросом
     results = await retriver_hybrid_async("Массаж", collection_name, channel_id)
     logger.info(f"Найдено результатов: {len(results)}")

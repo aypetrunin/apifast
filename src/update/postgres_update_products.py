@@ -23,7 +23,7 @@ async def update_products_fields(channel_id: int) -> bool:
         else :
             result = await _update_products_channel1(conn, channel_id)
 
-        logger.info(f"✅ Обновлено записей для channel_id={channel_id}: {result}")
+        logger.info(f"✅  Обновлено записей для channel_id={channel_id}: {result}")
 
         return bool(result)
     finally:
