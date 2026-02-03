@@ -1,3 +1,5 @@
+# schemas.py
+
 """Модель параметров передаваемых агенту."""
 
 from typing import Any, ClassVar

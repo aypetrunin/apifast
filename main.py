@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from src.settings import settings
 from src.routes.agent import router as agent_router
+from src.routes.reminders import reminders_router
 from src.routes.health import router as health_router
 from src.routes.update_faq import router as update_faq_router
 from src.routes.update_promo import router as update_promo_router
@@ -40,6 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(agent_router)
+app.include_router(reminders_router)
 app.include_router(update_faq_router)
 app.include_router(update_promo_router)
 app.include_router(update_services_router)
