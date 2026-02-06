@@ -93,6 +93,8 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
                 sort_by="created_at",
                 sort_order="desc",
             )
+
+
         except TypeError:
             return JSONResponse(
                 content={"success": False, "error": "Ошибка чтения threads"},
@@ -114,9 +116,9 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
             if not thread_id or not user_companychat:
                 continue
 
-            if last_dialog_state in ["new"]:
+            if last_dialog_state in ("new", None):
                 continue
-
+            
             if reminded >= reminder_limit:
                 continue
 

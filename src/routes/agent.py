@@ -98,7 +98,7 @@ async def _patch_assistant_meta(
         {
             "user_companychat": user_companychat,
             "last_assistant_ts": _utc_iso(),
-            "last_dialog_state": dialog_state,
+            "last_dialog_state": dialog_state or 'new',
             "reminded": 0, # обнуление счетчика возобновления диалога после ответа агента.
             **delivery,
         },

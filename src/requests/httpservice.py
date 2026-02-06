@@ -1,16 +1,15 @@
 """Функции для работы с API httpservice.ai2b.pro."""
 
+import logging
 import asyncio
 import random
 
 import aiohttp
 from typing_extensions import Any, Awaitable, Callable, Type, TypeVar
 
-# Свои модули
-from ..common import logger  # type: ignore
-
 T = TypeVar("T")
 
+logger = logging.getLogger(__name__)
 
 async def sent_message_to_history(
     user_id: int,
@@ -67,7 +66,7 @@ async def _sent_message_to_history(
         "user_id": user_id,
         "text": text,
         "user_companychat": user_companychat,
-        "reply_to_history_id": reply_to_history_id,
+        "reply_to_history_id": 6800, #reply_to_history_id,
         "access_token": access_token,
         "tokens": tokens,
         "tools": tools,
@@ -82,7 +81,7 @@ async def _sent_message_to_history(
     #     "Authorization": f"Bearer {access_token}",
     #     "Accept": "application/json",
     # }
-    # print(payload)
+    # logger.info(f"payload: {payload}")
     timeout = aiohttp.ClientTimeout(total=10)
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
