@@ -1,6 +1,8 @@
 dump2.py
 _review_dump.txt
 _review_dump_apifast.txt
+_review_dump_gpt5_apifast.txt
+dump.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

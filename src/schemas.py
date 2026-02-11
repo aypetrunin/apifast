@@ -38,6 +38,7 @@ class AgentRunParams(BaseModel):
         "agent_zena_alena": [5020, 15020],
         "agent_zena_valentina": [5021, 15021],
         "agent_zena_marina": [5024, 15024],
+        "agent_zena_egoistka": [5017, 15017],
     }
 
     @classmethod
