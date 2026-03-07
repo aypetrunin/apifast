@@ -275,7 +275,7 @@ async def _delete_thread(client: LangGraphClient, user_companychat: str) -> None
 
 
 async def _create_thread(client: LangGraphClient, assistant_id: str, params: AgentRunParams) -> str:
-    ttl = 20 if params.mcp_port in [5020] else 1440
+    ttl = 30 if params.mcp_port in [5020, 5024, 5001, 15020, 15024, 15001] else 1440
 
     thread = await client.threads.create(
         graph_id=assistant_id,
