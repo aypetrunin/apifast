@@ -275,7 +275,7 @@ async def _delete_thread(client: LangGraphClient, user_companychat: str) -> None
 
 
 async def _create_thread(client: LangGraphClient, assistant_id: str, params: AgentRunParams) -> str:
-    ttl = 30 if params.mcp_port in [5020, 5024, 5001, 15020, 15024, 15001] else 1440
+    # ttl = 30 if params.mcp_port in [5020, 5024, 5001, 15020, 15001] else 1440
 
     thread = await client.threads.create(
         graph_id=assistant_id,
@@ -294,7 +294,7 @@ async def _create_thread(client: LangGraphClient, assistant_id: str, params: Age
             "delivery_reply_to_history_id": int(params.reply_to_history_id),
             "delivery_access_token": str(params.access_token),
         },
-        ttl={"ttl": ttl, "strategy": "delete"},
+        # ttl={"ttl": ttl, "strategy": "delete"},
     )
 
     logger.info("✅ Новый поток создан!")
