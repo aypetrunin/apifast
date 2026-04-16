@@ -1,5 +1,3 @@
-import logging
-
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -9,10 +7,11 @@ from fastapi.responses import JSONResponse
 
 from ..deps import langgraph_client  # type: ignore
 from ..requests.httpservice import sent_message_to_history  # type: ignore
+from ..zena_logging import get_logger
 
 from .agent import _patch_thread_metadata, _utc_iso, _content_to_text
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 reminders_router = APIRouter(prefix="/agent/reminders", tags=["reminders"])
 
@@ -74,7 +73,7 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
       }
     """
 
-    logger.info("router - reminders_check")
+    logger.info("reminders.check.started")
 
     body = body or {}
     timeout_minutes = _safe_int(body.get("timeout_minutes", 5), 5)
@@ -152,7 +151,7 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
             try:
                 thread_state = await client.threads.get_state(thread_id)
             except Exception as e:
-                logger.warning("get_state failed ucc=%s thread=%s: %s", user_companychat, thread_id, e)
+                logger.warning("reminders.state_error", user_cc=user_companychat, thread_id=thread_id, error=str(e))
                 continue
 
             messages = _extract_state_messages(thread_state)
@@ -168,15 +167,15 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
                     on_completion="delete",
                 )
             except Exception as e:
-                logger.exception("agent_redialog failed ucc=%s thread=%s: %s", user_companychat, thread_id, e)
+                logger.exception("reminders.redialog_failed", user_cc=user_companychat, thread_id=thread_id, error=str(e))
                 continue
 
             reminder_text = _extract_reminder_text(agent_redialog_response)
             if not reminder_text:
-                logger.warning("empty reminder_text ucc=%s thread=%s", user_companychat, thread_id)
+                logger.warning("reminders.empty_text", user_cc=user_companychat, thread_id=thread_id)
                 continue
 
-            logger.info("agent_redialog_response: %s", reminder_text)
+            logger.info("reminders.response", user_cc=user_companychat, text_len=len(reminder_text))
 
             # 8) отправка напоминания
             try:
@@ -196,7 +195,7 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
                     dialog_state_new="",
                 )
             except Exception as e:
-                logger.exception("Reminder send failed ucc=%s thread=%s: %s", user_companychat, thread_id, e)
+                logger.exception("reminders.send_failed", user_cc=user_companychat, thread_id=thread_id, error=str(e))
                 continue
 
             reminded += 1
@@ -216,10 +215,10 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
                 )
             except Exception as e:
                 logger.warning(
-                    "⚠️ metadata patch failed ucc=%s thread=%s: %s",
-                    user_companychat,
-                    thread_id,
-                    e,
+                    "reminders.patch_failed",
+                    user_cc=user_companychat,
+                    thread_id=thread_id,
+                    error=str(e),
                 )
 
     return JSONResponse(
