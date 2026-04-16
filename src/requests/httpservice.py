@@ -1,15 +1,16 @@
 """Функции для работы с API httpservice.ai2b.pro."""
 
-import logging
 import asyncio
 import random
 
 import aiohttp
 from typing_extensions import Any, Awaitable, Callable, Type, TypeVar
 
+from ..zena_logging import get_logger
+
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 async def sent_message_to_history(
     user_id: int,
@@ -77,27 +78,21 @@ async def _sent_message_to_history(
         "dialog_state": dialog_state,
         "dialog_state_new": dialog_state_new,
     }
-    # headers = {
-    #     "Authorization": f"Bearer {access_token}",
-    #     "Accept": "application/json",
-    # }
-    # logger.info(f"payload: {payload}")
     timeout = aiohttp.ClientTimeout(total=10)
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            # async with session.post(url, json=payload, headers=headers) as resp:
-            logger.info("===_sent_message_to_history===")
+            logger.info("http.send_message", user_cc=user_companychat)
             async with session.post(url, json=payload) as resp:
                 resp.raise_for_status()
                 return await resp.json()
     except aiohttp.ClientResponseError as e:
-        logger.warning(f"HTTP error: {e.status} {e.message}")
+        logger.warning("http.error", status=e.status, message=e.message)
         raise
     except (aiohttp.ConnectionTimeoutError, aiohttp.ServerTimeoutError):
-        logger.warning("Request timed out")
+        logger.warning("http.timeout")
         raise
     except aiohttp.ClientError as e:
-        logger.warning(f"Client error: {e}")
+        logger.warning("http.client_error", error=str(e))
         raise
 
 
@@ -124,13 +119,19 @@ async def retry_async(
         except exceptions as e:
             if attempt == retries:
                 logger.exception(
-                    f"Последняя неудачная попытка {getattr(func, '__name__', func)}: {e}"
+                    "retry.exhausted",
+                    func=getattr(func, "__name__", str(func)),
+                    error=str(e),
                 )
                 raise
             wait = (backoff**attempt) + random.uniform(0, jitter)
             logger.warning(
-                f"Ошибка в {getattr(func, '__name__', func)}: {e} | попытка {attempt}/{retries} — "
-                f"повтор через {wait:.1f}s"
+                "retry.attempt",
+                func=getattr(func, "__name__", str(func)),
+                error=str(e),
+                attempt=attempt,
+                retries=retries,
+                wait_sec=round(wait, 1),
             )
             # Неблокирующее ожидание — не мешает другим корутинам
             await asyncio.sleep(wait)
