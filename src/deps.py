@@ -3,6 +3,8 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import asyncpg
+from fastapi import Request
 from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
 
@@ -19,3 +21,8 @@ async def langgraph_client() -> AsyncGenerator[LangGraphClient, None]:
         yield client
     finally:
         await client.aclose()
+
+
+def get_pg_pool(request: Request) -> asyncpg.Pool:  # type: ignore[type-arg]
+    """Достаёт пул из app.state."""
+    return request.app.state.pg_pool

@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+import asyncpg
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -26,9 +27,23 @@ logger = get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Жизненный цикл приложения."""
-    logger.info("app.started")
-    yield
-    logger.info("app.stopped")
+    pool = await asyncpg.create_pool(
+        **settings.postgres_config,
+        min_size=settings.postgres_pool_min_size,
+        max_size=settings.postgres_pool_max_size,
+        command_timeout=settings.postgres_command_timeout,
+    )
+    app.state.pg_pool = pool
+    logger.info(
+        "app.started",
+        pg_pool_min=settings.postgres_pool_min_size,
+        pg_pool_max=settings.postgres_pool_max_size,
+    )
+    try:
+        yield
+    finally:
+        await pool.close()
+        logger.info("app.stopped")
 
 
 app = FastAPI(title="FastAPI ↔ LangGraph", debug=True, lifespan=lifespan)

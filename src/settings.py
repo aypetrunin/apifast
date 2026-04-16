@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     postgres_host: str = Field(env='POSTGRES_HOST')
     postgres_port: int = Field(env='POSTGRES_PORT')
 
+    postgres_pool_min_size: int = 2
+    postgres_pool_max_size: int = 10
+    postgres_command_timeout: int = 60
+
     @property
     def postgres_config(self) -> dict[str, Any]:
         """Определение свойства."""
