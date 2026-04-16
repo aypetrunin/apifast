@@ -6,8 +6,10 @@ from fastapi.responses import JSONResponse
 
 from ..deps import get_pg_pool
 from ..update.postgres_common import is_channel_id  # type: ignore
-from ..update.postgres_update_products_services import update_products_services  # type: ignore
-from ..update.postgres_update_products import update_products_fields   # type: ignore
+from ..update.postgres_update_products import update_products_fields  # type: ignore
+from ..update.postgres_update_products_services import (
+    update_products_services,  # type: ignore
+)
 from ..update.qdrant_creat_products import qdrant_create_products_async  # type: ignore
 from ..zena_logging import get_logger, timed_block
 

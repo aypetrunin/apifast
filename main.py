@@ -5,20 +5,19 @@ from typing import AsyncIterator
 
 import asyncpg
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.settings import settings
-from src.zena_logging import setup_logging, get_logger
 from src.routes.agent import router as agent_router
-from src.routes.reminders import reminders_router
 from src.routes.health import router as health_router
+from src.routes.reminders import reminders_router
 from src.routes.update_faq import router as update_faq_router
+from src.routes.update_products import router as update_product
 from src.routes.update_promo import router as update_promo_router
 from src.routes.update_services import router as update_services_router
-from src.routes.update_products import router as update_product
-
+from src.settings import settings
+from src.zena_logging import get_logger, setup_logging
 
 setup_logging()
 logger = get_logger()

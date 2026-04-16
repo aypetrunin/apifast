@@ -3,8 +3,8 @@
 import os
 from typing import Any
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def is_docker() -> bool:
