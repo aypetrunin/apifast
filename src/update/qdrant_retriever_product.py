@@ -43,8 +43,6 @@ def points_to_list(points: list[Record] | list[ScoredPoint]) -> list[dict[str, A
     Возвращает:
         Список словарей, содержащих поля продукта: имя, тип, длительность, цена и т.д.
     """
-    # logger.info(f"points:\n{points}")
-    # logger.info(f"hasattr(points, 'points'): {hasattr(points, 'points')}")
     # Определяем тип ScoredPoint по наличию атрибута points.
     if hasattr(points, "points"):
         points = points.points
