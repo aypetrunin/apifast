@@ -1,85 +1,75 @@
 """Модуль реализует endpoint update/products."""
 
-import time
-
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from ..common import logger  # type: ignore
 from ..update.postgres_common import is_channel_id  # type: ignore
 from ..update.postgres_update_products_services import update_products_services  # type: ignore
 from ..update.postgres_update_products import update_products_fields   # type: ignore
 from ..update.qdrant_creat_products import qdrant_create_products_async  # type: ignore
+from ..zena_logging import get_logger, timed_block
 
 router = APIRouter(prefix="/update", tags=["update"])
+
+logger = get_logger()
 
 
 @router.post("/products")
 async def update_products(channel_id: int, update: bool = False) -> JSONResponse:
     """Определение endpoint."""
-    logger.info("update_products")
     try:
-        t0 = time.perf_counter()
         if not update:
-            msg = "Параметр: update = False. Для обновления установите: True."
-            logger.info(msg)
+            logger.info("update.products.skipped", channel_id=channel_id, reason="update=False")
             return JSONResponse(
-                content={"success": False, "exception": msg},
+                content={"success": False, "exception": "Параметр: update = False. Для обновления установите: True."},
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         if not await is_channel_id(channel_id):
-            msg = f"Нет фирмы с channel_id = {channel_id}"
-            logger.info(msg)
+            logger.info("update.products.not_found", channel_id=channel_id)
             return JSONResponse(
-                content={"success": False, "exception": msg},
+                content={"success": False, "exception": f"Нет фирмы с channel_id = {channel_id}"},
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        logger.info("update_products_fields")
-        if not await update_products_fields(channel_id):
-            msg = f"Ошибка обновления полей в таблице products для channel_id = {channel_id}"
-            logger.info(msg)
-            return JSONResponse(
-                content={"success": False, "exception": msg},
-                status_code=status.HTTP_404_NOT_FOUND,
-            )
+        logger.info("update.products.started", channel_id=channel_id)
 
-        logger.info("update_products_services")
-        if not await update_products_services(channel_id):
-            msg = "update_products_services - Ошибка обновления таблицы products_services - связка products и services."
-            logger.info(msg)
+        async with timed_block("update.products.postgres_fields"):
+            fields_ok = await update_products_fields(channel_id)
+        if not fields_ok:
+            logger.error("update.products.failed", channel_id=channel_id, stage="postgres_fields")
             return JSONResponse(
-                content={"success": False, "exception": msg},
+                content={"success": False, "exception": f"Ошибка обновления полей в таблице products для channel_id = {channel_id}"},
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        t1 = time.perf_counter()
-        logger.info("qdrant_create_products_async")
-        if not await qdrant_create_products_async():
-            msg = "qdrant_create_products_async - Ошибка создания коллекции zena2_products_services_view в qdrant."
-            logger.info(msg)
+        async with timed_block("update.products.postgres_services"):
+            services_ok = await update_products_services(channel_id)
+        if not services_ok:
+            logger.error("update.products.failed", channel_id=channel_id, stage="postgres_services")
             return JSONResponse(
-                content={"success": False, "exception": msg},
+                content={"success": False, "exception": "Ошибка обновления таблицы products_services - связка products и services."},
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        t2 = time.perf_counter()
-        t_all = t2 - t0
-        t_postgres = t1 - t0
-        t_qdrant = t2 - t1
-        msg_time = f"Общее время: {t_all:.2f} сек., Postgres: {t_postgres:.2f} сек., Qdrant: {t_qdrant:.2f} сек."
-        msg = f"Коллекция 'zena2_products_services_view' пересоздана для channel_id = {channel_id}. "
-        logger.info(msg)
+        async with timed_block("update.products.qdrant"):
+            qdrant_ok = await qdrant_create_products_async()
+        if not qdrant_ok:
+            logger.error("update.products.failed", channel_id=channel_id, stage="qdrant")
+            return JSONResponse(
+                content={"success": False, "exception": "Ошибка создания коллекции zena2_products_services_view в qdrant."},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        logger.info("update.products.completed", channel_id=channel_id)
         return JSONResponse(
-            content={"success": True, "comment": msg, "time": msg_time},
+            content={"success": True, "comment": f"Коллекция 'zena2_products_services_view' пересоздана для channel_id = {channel_id}."},
             status_code=status.HTTP_200_OK,
         )
 
     except Exception as e:
-        msg = f"Ошибка обновления: {e}"
-        logger.exception(msg)
+        logger.exception("update.products.error", channel_id=channel_id, error=str(e))
         return JSONResponse(
-            content={"success": False, "exception": msg},
+            content={"success": False, "exception": f"Ошибка обновления: {e}"},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
