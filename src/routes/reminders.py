@@ -1,17 +1,19 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-
 from ..deps import langgraph_client  # type: ignore
 from ..requests.httpservice import sent_message_to_history  # type: ignore
 from ..zena_logging import get_logger
-
-from .agent import _patch_thread_metadata, _utc_iso, _content_to_text
+from .agent import _content_to_text, _patch_thread_metadata, _utc_iso
 
 logger = get_logger()
+
+DEFAULT_TIMEOUT_MINUTES = 5
+DEFAULT_COOLDOWN_MINUTES = 5
+DEFAULT_REMINDER_LIMIT = 2
 
 reminders_router = APIRouter(prefix="/agent/reminders", tags=["reminders"])
 
@@ -76,9 +78,9 @@ async def reminders_check(body: dict[str, Any] | None = None) -> JSONResponse:
     logger.info("reminders.check.started")
 
     body = body or {}
-    timeout_minutes = _safe_int(body.get("timeout_minutes", 5), 5)
-    cooldown_minutes = _safe_int(body.get("cooldown_minutes", 5), 5)
-    reminder_limit = _safe_int(body.get("reminder_limit", 2), 2)
+    timeout_minutes = _safe_int(body.get("timeout_minutes", DEFAULT_TIMEOUT_MINUTES), DEFAULT_TIMEOUT_MINUTES)
+    cooldown_minutes = _safe_int(body.get("cooldown_minutes", DEFAULT_COOLDOWN_MINUTES), DEFAULT_COOLDOWN_MINUTES)
+    reminder_limit = _safe_int(body.get("reminder_limit", DEFAULT_REMINDER_LIMIT), DEFAULT_REMINDER_LIMIT)
 
     now = datetime.now(timezone.utc)
 

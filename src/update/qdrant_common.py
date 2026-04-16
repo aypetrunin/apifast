@@ -1,8 +1,8 @@
 """Модуль общих функций для работы с qdrant."""
 
 import asyncio
-import os
 import inspect
+import os
 import random
 from collections.abc import Iterator
 from typing import Any, Awaitable, Callable, Sequence, TypeVar, Union
@@ -20,6 +20,9 @@ logger = get_logger()
 from ..settings import settings  # type: ignore
 
 T = TypeVar("T")
+
+RETRY_COUNT = 3
+RETRY_BACKOFF = 2.0
 
 # -------------------- Config --------------------
 # Конфигурация для OpenAI, Qdrant и Postgres
@@ -57,8 +60,8 @@ qdrant_client = AsyncQdrantClient(
 async def retry_request(
     func: Callable[..., Union[T, Awaitable[T]]],  # допускает обычный и async вызов
     *args: Any,
-    retries: int = 3,
-    backoff: float = 2.0,
+    retries: int = RETRY_COUNT,
+    backoff: float = RETRY_BACKOFF,
     **kwargs: Any,
 ) -> T:
     """Функция повтора."""

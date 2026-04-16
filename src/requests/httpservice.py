@@ -12,6 +12,11 @@ T = TypeVar("T")
 
 logger = get_logger()
 
+HTTP_TIMEOUT_SEC = 10
+HTTP_RETRIES = 1
+HTTP_BACKOFF = 2.0
+HTTP_JITTER = 1.0
+
 async def sent_message_to_history(
     user_id: int,
     text: str,
@@ -78,7 +83,7 @@ async def _sent_message_to_history(
         "dialog_state": dialog_state,
         "dialog_state_new": dialog_state_new,
     }
-    timeout = aiohttp.ClientTimeout(total=10)
+    timeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT_SEC)
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             logger.info("http.send_message", user_cc=user_companychat)
@@ -99,9 +104,9 @@ async def _sent_message_to_history(
 async def retry_async(
     func: Callable[..., Awaitable[T]],
     *args: Any,
-    retries: int = 1,
-    backoff: float = 2.0,
-    jitter: float = 1.0,
+    retries: int = HTTP_RETRIES,
+    backoff: float = HTTP_BACKOFF,
+    jitter: float = HTTP_JITTER,
     exceptions: tuple[Type[BaseException], ...] = (Exception,),
     **kwargs: Any,
 ) -> T:
