@@ -7,8 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
-print(os.getcwd())  # Должна совпадать с местом, куда скопировали .env
-
 def is_docker() -> bool:
     """Функция определят запущен код в докерк или нет."""
     return str(os.getenv("IS_DOCKER", "0")).lower() in ("1", "true", "yes")
