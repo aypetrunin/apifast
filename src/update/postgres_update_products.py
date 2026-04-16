@@ -11,25 +11,21 @@ from asyncpg import Connection
 from ..zena_logging import get_logger  # type: ignore
 
 logger = get_logger()
-from ..settings import settings  # type: ignore
 from .postgres_products_utils import classify, sanitize_name
 
 
-async def update_products_fields(channel_id: int) -> bool:
+async def update_products_fields(channel_id: int, pool: asyncpg.Pool) -> bool:  # type: ignore[type-arg]
     """Функция обновления полей product_full_name, product_unid_ean."""
-    conn: Connection = await asyncpg.connect(**settings.postgres_config)
-    result = ''
-    try:
+    async with pool.acquire() as conn:
+        result = ''
         if channel_id in [2]:
             result = await _update_products_channel2(conn, channel_id)
-        else :
+        else:
             result = await _update_products_channel1(conn, channel_id)
 
-        logger.info(f"✅  Обновлено записей для channel_id={channel_id}: {result}")
+        logger.info(f"Обновлено записей для channel_id={channel_id}: {result}")
 
         return bool(result)
-    finally:
-        await conn.close()
 
 
 async def _update_products_channel1(conn: Connection, channel_id: int) -> str:

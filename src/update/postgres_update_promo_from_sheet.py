@@ -9,11 +9,10 @@ from asyncpg import Connection
 from ..zena_logging import get_logger  # type: ignore
 
 logger = get_logger()
-from ..settings import settings  # type: ignore
 from .google_sheet_reader import UniversalGoogleSheetReader
 
 
-async def update_promo_from_sheet(channel_id: int, sheet_name: str = "promo") -> bool:
+async def update_promo_from_sheet(channel_id: int, pool: asyncpg.Pool, sheet_name: str = "promo") -> bool:  # type: ignore[type-arg]
     """Асинхронная функция обновления PROMO из Google Sheets для указанного канала.
 
     Процесс работы:
@@ -25,57 +24,51 @@ async def update_promo_from_sheet(channel_id: int, sheet_name: str = "promo") ->
     6. Логгирует этапы и возвращает True в случае успеха или False при ошибке.
     """
     logger.info(f"Начало обновления PROMO для channel_id={channel_id}")
-    conn: Connection = await asyncpg.connect(
-        **settings.postgres_config
-    )  # Подключение к БД PostgreSQL
 
     try:
-        # Получение URL таблицы Google Sheets для данного канала
-        spreadsheet_url = await _fetch_spreadsheet_url(conn, channel_id)
+        async with pool.acquire() as conn:
+            # Получение URL таблицы Google Sheets для данного канала
+            spreadsheet_url = await _fetch_spreadsheet_url(conn, channel_id)
 
-        # Создание ридера для чтения данных с указанного листа
-        reader = await UniversalGoogleSheetReader.create(spreadsheet_url, sheet_name)
+            # Создание ридера для чтения данных с указанного листа
+            reader = await UniversalGoogleSheetReader.create(spreadsheet_url, sheet_name)
 
-        # Получение всех строк с данными FAQ из Google Sheets
-        faqs = await reader.get_all_rows()
+            # Получение всех строк с данными FAQ из Google Sheets
+            faqs = await reader.get_all_rows()
 
-        # Валидация и фильтрация полученных данных (убираются пустые/некорректные записи)
-        proms_filtered = _filter_valid_promo(faqs)
-        logger.info(
-            f"Добавить в базу {len(proms_filtered)} строк PROMO для channel_id={channel_id}"
-        )
-
-        # Использование транзакции для атомарного удаления старых и вставки новых записей
-        async with conn.transaction():
-            # Удаление старых FAQ из базы для данного канала
-            deleted_count = await _delete_existing_promo(conn, channel_id)
+            # Валидация и фильтрация полученных данных (убираются пустые/некорректные записи)
+            proms_filtered = _filter_valid_promo(faqs)
             logger.info(
-                f"Удалено из базы {deleted_count} строк FAQ для channel_id={channel_id}"
+                f"Добавить в базу {len(proms_filtered)} строк PROMO для channel_id={channel_id}"
             )
 
-            # Формирование кортежей значений для вставки в таблицу FAQ
-            insert_tuples = _build_insert_tuples(proms_filtered, channel_id)
-
-            # Если есть новые записи, выполняем пакетную вставку в базу
-            if insert_tuples:
-                await conn.executemany(
-                    "INSERT INTO promo (key_word, service, channel_id) VALUES ($1, $2, $3)",
-                    insert_tuples,
+            # Использование транзакции для атомарного удаления старых и вставки новых записей
+            async with conn.transaction():
+                # Удаление старых FAQ из базы для данного канала
+                deleted_count = await _delete_existing_promo(conn, channel_id)
+                logger.info(
+                    f"Удалено из базы {deleted_count} строк FAQ для channel_id={channel_id}"
                 )
 
-        logger.info(
-            f"Добавлено в базу {len(insert_tuples)} строк PROMO для channel_id={channel_id}"
-        )
-        return True
+                # Формирование кортежей значений для вставки в таблицу FAQ
+                insert_tuples = _build_insert_tuples(proms_filtered, channel_id)
+
+                # Если есть новые записи, выполняем пакетную вставку в базу
+                if insert_tuples:
+                    await conn.executemany(
+                        "INSERT INTO promo (key_word, service, channel_id) VALUES ($1, $2, $3)",
+                        insert_tuples,
+                    )
+
+            logger.info(
+                f"Добавлено в базу {len(insert_tuples)} строк PROMO для channel_id={channel_id}"
+            )
+            return True
 
     except Exception as e:
         # Логгирование ошибки в случае неудачи обновления
         logger.error(f"Ошибка обновления FAQ для channel_id={channel_id}: {e}")
         return False
-
-    finally:
-        # Закрытие соединения с базой данных
-        await conn.close()
 
 
 async def _fetch_spreadsheet_url(conn: Connection, channel_id: int) -> str:

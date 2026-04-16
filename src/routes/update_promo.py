@@ -1,13 +1,14 @@
 """Модуль реализует endpoint update/promo."""
 
-from fastapi import APIRouter, status
+import asyncpg
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
+from ..deps import get_pg_pool
 from ..update.postgres_common import is_channel_id  # type: ignore
-from ..update.postgres_update_faq_from_sheet import (
-    update_faq_from_sheet,  # type: ignore
+from ..update.postgres_update_promo_from_sheet import (
+    update_promo_from_sheet,  # type: ignore
 )
-from ..update.qdrant_creat_faq import qdrant_create_faq_async  # type: ignore
 from ..zena_logging import get_logger, timed_block
 
 router = APIRouter(prefix="/update", tags=["update"])
@@ -16,7 +17,7 @@ logger = get_logger()
 
 
 @router.post("/promo")
-async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
+async def update_promo(channel_id: int, update: bool = False, pool: asyncpg.Pool = Depends(get_pg_pool)) -> JSONResponse:  # type: ignore[type-arg]
     """Определение endpoint."""
     try:
         if not update:
@@ -26,7 +27,7 @@ async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not await is_channel_id(channel_id):
+        if not await is_channel_id(channel_id, pool):
             logger.info("update.promo.not_found", channel_id=channel_id)
             return JSONResponse(
                 content={"success": False, "exception": f"Нет фирмы с channel_id = {channel_id}"},
@@ -36,7 +37,7 @@ async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
         logger.info("update.promo.started", channel_id=channel_id)
 
         async with timed_block("update.promo.postgres"):
-            postgres_ok = await update_faq_from_sheet(channel_id)
+            postgres_ok = await update_promo_from_sheet(channel_id, pool)
         if not postgres_ok:
             logger.error("update.promo.failed", channel_id=channel_id, stage="postgres")
             return JSONResponse(

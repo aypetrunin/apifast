@@ -37,12 +37,11 @@ from .qdrant_retriever_faq_services import retriver_hybrid_async
 
 # Название коллекции Qdrant для сервисов
 QDRANT_COLLECTION = settings.qdrant_collection_services
-POSTGRES_CONFIG = settings.postgres_config
 
 
 # -------------------- Главная асинхронная функция --------------------
 async def qdrant_create_services_async(
-    collection_name: str = QDRANT_COLLECTION, channel_id: int | None = None
+    collection_name: str = QDRANT_COLLECTION, channel_id: int | None = None, pool: asyncpg.Pool | None = None  # type: ignore[type-arg]
 ) -> bool:
     """Главная функция для создания коллекции сервисов в Qdrant.
 
@@ -55,7 +54,7 @@ async def qdrant_create_services_async(
     logger.info("qdrant_create_services_async")
     logger.info("Шаг 1: Загрузка данных из Postgres")
     # Шаг 1: Загрузка данных из Postgres
-    docs = await services_load_from_postgres(channel_id=channel_id)
+    docs = await services_load_from_postgres(channel_id=channel_id, pool=pool)
     if not docs:
         logger.warning("Нет данных для загрузки.")
         return False
@@ -80,6 +79,7 @@ async def qdrant_create_services_async(
 # -------------------- Загрузка сервисов из Postgres --------------------
 async def services_load_from_postgres(
     channel_id: int | None = None,
+    pool: asyncpg.Pool | None = None,  # type: ignore[type-arg]
 ) -> list[dict[str, Any]]:
     """Загружает сервисы из таблицы services.
 
@@ -88,8 +88,8 @@ async def services_load_from_postgres(
     channel_id, id, services_name, description, indications,
     contraindications, pre_session_instructions, body_parts
     """
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)
-    try:
+    assert pool is not None, "pool is required"
+    async with pool.acquire() as conn:
         if channel_id is not None:
             rows = await conn.fetch(
                 """
@@ -107,8 +107,6 @@ async def services_load_from_postgres(
                 FROM services
             """)
         return [dict(r) for r in rows]
-    finally:
-        await conn.close()
 
 
 # -------------------- Загрузка сервисов в Qdrant --------------------

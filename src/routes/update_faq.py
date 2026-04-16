@@ -1,8 +1,10 @@
 """Модуль реализует endpoint update/faq."""
 
-from fastapi import APIRouter, status
+import asyncpg
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
+from ..deps import get_pg_pool
 from ..update.postgres_common import is_channel_id  # type: ignore
 from ..update.postgres_update_faq_from_sheet import (
     update_faq_from_sheet,  # type: ignore
@@ -16,7 +18,7 @@ logger = get_logger()
 
 
 @router.post("/faq")
-async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
+async def update_faq(channel_id: int, update: bool = False, pool: asyncpg.Pool = Depends(get_pg_pool)) -> JSONResponse:  # type: ignore[type-arg]
     """Определение endpoint."""
     try:
         if not update:
@@ -26,7 +28,7 @@ async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not await is_channel_id(channel_id):
+        if not await is_channel_id(channel_id, pool):
             logger.info("update.faq.not_found", channel_id=channel_id)
             return JSONResponse(
                 content={"success": False, "exception": f"Нет фирмы с channel_id = {channel_id}"},
@@ -36,7 +38,7 @@ async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
         logger.info("update.faq.started", channel_id=channel_id)
 
         async with timed_block("update.faq.postgres"):
-            postgres_ok = await update_faq_from_sheet(channel_id)
+            postgres_ok = await update_faq_from_sheet(channel_id, pool)
         if not postgres_ok:
             logger.error("update.faq.failed", channel_id=channel_id, stage="postgres")
             return JSONResponse(
@@ -45,7 +47,7 @@ async def update_faq(channel_id: int, update: bool = False) -> JSONResponse:
             )
 
         async with timed_block("update.faq.qdrant"):
-            qdrant_ok = await qdrant_create_faq_async()
+            qdrant_ok = await qdrant_create_faq_async(pool)
         if not qdrant_ok:
             logger.error("update.faq.failed", channel_id=channel_id, stage="qdrant")
             return JSONResponse(

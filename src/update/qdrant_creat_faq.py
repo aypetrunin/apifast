@@ -37,11 +37,10 @@ from .qdrant_retriever_faq_services import retriver_hybrid_async
 
 # Название коллекции в Qdrant
 QDRANT_COLLECTION = settings.qdrant_collection_faq
-POSTGRES_CONFIG = settings.postgres_config
 
 
 # -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_faq_async() -> bool:
+async def qdrant_create_faq_async(pool: asyncpg.Pool) -> bool:  # type: ignore[type-arg]
     """Главная функция для создания коллекции FAQ в Qdrant.
 
     1. Загружает FAQ из Postgres
@@ -50,7 +49,7 @@ async def qdrant_create_faq_async() -> bool:
     4. Проверяет работу поиска с тестовым запросом
     """
     # Шаг 1: Загрузка данных из Postgres
-    docs = await faq_load_from_postgres()
+    docs = await faq_load_from_postgres(pool)
     if not docs:
         logger.warning("Нет данных для загрузки.")
         return False
@@ -70,21 +69,18 @@ async def qdrant_create_faq_async() -> bool:
 
 
 # -------------------- Загрузка FAQ из Postgres --------------------
-async def faq_load_from_postgres() -> list[dict[str, Any]]:
+async def faq_load_from_postgres(pool: asyncpg.Pool) -> list[dict[str, Any]]:  # type: ignore[type-arg]
     """Загружает все записи FAQ из таблицы 'faq' в Postgres.
 
     Возвращает список словарей с ключами:
     channel_id, id, topic, question, answer
     """
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)  # Подключение к БД
-    try:
+    async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT channel_id, id, topic, question, answer FROM faq"
         )
         # Преобразуем строки в список словарей
         return [dict(r) for r in rows]
-    finally:
-        await conn.close()  # Закрываем соединение
 
 
 # -------------------- Загрузка FAQ в Qdrant --------------------

@@ -11,9 +11,6 @@ import asyncpg
 from ..zena_logging import get_logger  # type: ignore
 
 logger = get_logger()
-from ..settings import settings  # type: ignore
-
-POSTGRES_CONFIG = settings.postgres_config
 
 # === Конфигурация ===
 settings = {
@@ -366,13 +363,12 @@ def classify(product_name, service_value, description, debug: bool = False):  # 
 
 
 # === Тестовая функция ===
-async def test_classification(channel_id: int = 2, limit: int = 10):  # type: ignore
+async def test_classification(pool: asyncpg.Pool, channel_id: int = 2, limit: int = 10):  # type: ignore[type-arg]
     """Тестирует классификацию без обновления таблицы.
 
     Выводит результаты в консоль.
     """
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)
-    try:
+    async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT product_id, product_name, service_value, description "
             "FROM products WHERE channel_id=$1 LIMIT $2",
@@ -381,7 +377,7 @@ async def test_classification(channel_id: int = 2, limit: int = 10):  # type: ig
         )
 
         logger.info(
-            f"🔍 Тест классификации для channel_id={channel_id} (первые {limit} записей):\n"
+            f"Тест классификации для channel_id={channel_id} (первые {limit} записей):\n"
         )
 
         for r in rows:
@@ -394,12 +390,9 @@ async def test_classification(channel_id: int = 2, limit: int = 10):  # type: ig
             display_name = sanitize_name(r["product_name"])
             full_name = f"{category} - {display_name}"
 
-            logger.info(f"🧩 ID: {r['product_id']}")
-            logger.info(f"  → category: {category}")
-            logger.info(f"  → product_full_name: {full_name}\n")
-
-    finally:
-        await conn.close()
+            logger.info(f"ID: {r['product_id']}")
+            logger.info(f"  category: {category}")
+            logger.info(f"  product_full_name: {full_name}\n")
 
 
 if __name__ == "__main__":

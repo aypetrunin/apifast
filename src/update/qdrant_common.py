@@ -29,9 +29,6 @@ OPENAI_TIMEOUT = settings.openai_timeout  # Таймаут запросов к O
 QDRANT_URL = settings.qdrant_url  # URL Qdrant
 QDRANT_TIMEOUT = settings.qdrant_timeout  # Таймаут запросов к Qdrant
 
-# Конфигурация для подключения к PostgreSQL
-POSTGRES_CONFIG = settings.postgres_config
-
 # -------------------- Clients --------------------
 # Инициализация клиентов для работы с разными сервисами
 

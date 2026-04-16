@@ -1,8 +1,10 @@
 """Модуль реализует endpoint update/products."""
 
-from fastapi import APIRouter, status
+import asyncpg
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
+from ..deps import get_pg_pool
 from ..update.postgres_common import is_channel_id  # type: ignore
 from ..update.postgres_update_products_services import update_products_services  # type: ignore
 from ..update.postgres_update_products import update_products_fields   # type: ignore
@@ -15,7 +17,7 @@ logger = get_logger()
 
 
 @router.post("/products")
-async def update_products(channel_id: int, update: bool = False) -> JSONResponse:
+async def update_products(channel_id: int, update: bool = False, pool: asyncpg.Pool = Depends(get_pg_pool)) -> JSONResponse:  # type: ignore[type-arg]
     """Определение endpoint."""
     try:
         if not update:
@@ -25,7 +27,7 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not await is_channel_id(channel_id):
+        if not await is_channel_id(channel_id, pool):
             logger.info("update.products.not_found", channel_id=channel_id)
             return JSONResponse(
                 content={"success": False, "exception": f"Нет фирмы с channel_id = {channel_id}"},
@@ -35,7 +37,7 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
         logger.info("update.products.started", channel_id=channel_id)
 
         async with timed_block("update.products.postgres_fields"):
-            fields_ok = await update_products_fields(channel_id)
+            fields_ok = await update_products_fields(channel_id, pool)
         if not fields_ok:
             logger.error("update.products.failed", channel_id=channel_id, stage="postgres_fields")
             return JSONResponse(
@@ -44,7 +46,7 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
             )
 
         async with timed_block("update.products.postgres_services"):
-            services_ok = await update_products_services(channel_id)
+            services_ok = await update_products_services(channel_id, pool)
         if not services_ok:
             logger.error("update.products.failed", channel_id=channel_id, stage="postgres_services")
             return JSONResponse(
@@ -53,7 +55,7 @@ async def update_products(channel_id: int, update: bool = False) -> JSONResponse
             )
 
         async with timed_block("update.products.qdrant"):
-            qdrant_ok = await qdrant_create_products_async()
+            qdrant_ok = await qdrant_create_products_async(pool)
         if not qdrant_ok:
             logger.error("update.products.failed", channel_id=channel_id, stage="qdrant")
             return JSONResponse(

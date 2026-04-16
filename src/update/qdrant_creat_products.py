@@ -23,7 +23,6 @@ from .qdrant_retriever_product import retriever_product_hybrid_async
 
 # Название коллекции Qdrant для продуктов и услуг
 QDRANT_COLLECTION = settings.qdrant_collection_products
-POSTGRES_CONFIG = settings.postgres_config
 
 # Поля для создания текстовых индексов в Qdrant
 TEXT_INDEX_FIELDS = [
@@ -35,7 +34,7 @@ TEXT_INDEX_FIELDS = [
 
 
 # -------------------- Главная асинхронная функция --------------------
-async def qdrant_create_products_async() -> bool:
+async def qdrant_create_products_async(pool: asyncpg.Pool) -> bool:  # type: ignore[type-arg]
     """Главная функция для создания коллекции продуктов в Qdrant.
 
     1. Загружает продукты из Postgres
@@ -44,7 +43,7 @@ async def qdrant_create_products_async() -> bool:
     4. Проверяет работу поиска через retriver_product_hybrid_async
     """
     # Шаг 1: Загрузка данных
-    docs = await products_load_from_postgres()
+    docs = await products_load_from_postgres(pool)
     if not docs:
         logger.warning("Нет данных для загрузки.")
         return False
@@ -66,17 +65,14 @@ async def qdrant_create_products_async() -> bool:
 
 
 # -------------------- Загрузка продуктов из Postgres --------------------
-async def products_load_from_postgres() -> list[dict[str, Any]]:
+async def products_load_from_postgres(pool: asyncpg.Pool) -> list[dict[str, Any]]:  # type: ignore[type-arg]
     """Загружает все продукты и услуги из представления product_service_view в Postgres.
 
     Возвращает список словарей, где каждая запись содержит все колонки из представления.
     """
-    conn = await asyncpg.connect(**POSTGRES_CONFIG)  # Подключение к БД
-    try:
+    async with pool.acquire() as conn:
         rows = await conn.fetch("""SELECT * FROM product_service_view""")
         return [dict(r) for r in rows]  # Преобразуем результат в список словарей
-    finally:
-        await conn.close()  # Закрываем соединение
 
 
 # -------------------- Загрузка продуктов в Qdrant --------------------
