@@ -1,6 +1,7 @@
 """Модуль общих функций для работы с qdrant."""
 
 import asyncio
+import os
 import inspect
 import random
 from collections.abc import Iterator
@@ -33,7 +34,12 @@ POSTGRES_CONFIG = settings.postgres_config
 # Инициализация клиентов для работы с разными сервисами
 
 # BM25 sparse embedding модель для поиска по тексту
-bm25_embedding_model = Bm25("Qdrant/bm25", language="russian")
+_bm25_model_path = os.environ.get("BM25_MODEL_PATH")
+bm25_embedding_model = Bm25(
+    "Qdrant/bm25",
+    language="russian",
+    **( {"specific_model_path": _bm25_model_path} if _bm25_model_path else {}),
+)
 
 # Асинхронный клиент OpenAI с использованием httpx
 openai_client = AsyncOpenAI(

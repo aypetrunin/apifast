@@ -1,10 +1,10 @@
 deactivate
-cd /home/copilot_superuser/petrunin/zena/apifast
+cd /home/user/zena/zena/apifast
 source .venv/bin/activate
 python -c "import sys; print(sys.executable)"
 
 # Путь к интерпритатору.
-/home/copilot_superuser/petrunin/zena/apifast/.venv/bin/python
+/home/user/zena/zena/apifast/.venv/bin/python
 
 # 1.Фиксация версии Python для проекта
 # переходим в рабочий каталог и выполняем команду
@@ -52,6 +52,3 @@ deactivate
 cd /home/copilot_superuser/petrunin/zena/apifast
 source .venv/bin/activate
 uvicorn main:app --reload --host 0.0.0.0 --port 3025
-
-
-

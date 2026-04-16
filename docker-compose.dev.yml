@@ -4,12 +4,15 @@ services:
     image: "zena_apifast:${ENV}"
     env_file:
       - ../deploy/dev.env
+    environment:
+      - BM25_MODEL_PATH=/app/models/bm25
     ports:
       - "${APIFAST_PORT}:3024"
     volumes:
       - ./src:/app/src
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
+      - ./models:/app/models
     restart: unless-stopped
     networks:
       - zena-network
