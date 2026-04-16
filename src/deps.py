@@ -7,7 +7,9 @@ from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
 
 from .settings import settings
-from .common import logger
+from .zena_logging import get_logger
+
+logger = get_logger()
 
 @asynccontextmanager
 async def langgraph_client() -> AsyncGenerator[LangGraphClient, None]:

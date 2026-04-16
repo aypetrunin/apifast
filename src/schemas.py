@@ -6,7 +6,9 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, model_validator
 
-from .common import logger
+from .zena_logging import get_logger
+
+logger = get_logger()
 
 
 class AgentRunParams(BaseModel):
@@ -55,10 +57,10 @@ class AgentRunParams(BaseModel):
         if not isinstance(values, dict):
             return values
 
-        logger.info(f"values={values}")
+        logger.debug("agent.params.received", values=values)
 
         mcp_port = values.get("mcp_port") or 5007
-        logger.info(f"mcp_port={mcp_port}")
+        logger.debug("agent.params.mcp_port", mcp_port=mcp_port)
 
         assistant_id = cls.get_agent_by_mcp_port(mcp_port)
 
@@ -77,5 +79,5 @@ class AgentRunParams(BaseModel):
             }
         )
 
-        logger.info(f"assistant_id={assistant_id}")
+        logger.info("agent.params.resolved", assistant_id=assistant_id, mcp_port=mcp_port)
         return values
