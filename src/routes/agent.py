@@ -1,8 +1,5 @@
 """Модуль создания endpointa '/agent/run' - агента-бота."""
 
-import logging
-import time
-
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,11 +8,11 @@ from fastapi.responses import JSONResponse
 from langgraph_sdk.client import LangGraphClient
 from langgraph_sdk.schema import Assistant
 
-
 from ..deps import langgraph_client  # type: ignore
 from ..schemas import AgentRunParams  # type: ignore
+from ..zena_logging import bind_contextvars, clear_contextvars, get_logger, timed_block
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -110,9 +107,7 @@ async def _patch_assistant_meta(
 
 @router.post("/run")
 async def run_sync(params: AgentRunParams) -> JSONResponse:
-    info = "--NOT--"
     text = ""
-    assistant_id_resolved: str | None = None
     delivery = {
         "delivery_user_id": int(params.user_id),
         "delivery_reply_to_history_id": int(params.reply_to_history_id),
@@ -121,91 +116,66 @@ async def run_sync(params: AgentRunParams) -> JSONResponse:
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     success_response: dict[str, Any] = {"success": False, "exception": "unknown"}
 
-    t0 = t1 = t2 = time.perf_counter()
+    user_companychat = str(params.user_companychat)
+    clear_contextvars()
+    bind_contextvars(user_cc=user_companychat)
 
     try:
-        logger.info("===router/run===")
-        logger.info("params: %s", params)
+        async with timed_block("agent.run"):
+            logger.info("agent.run.started", assistant_id=params.assistant_id)
+            logger.debug("agent.run.params", params=str(params))
 
-        user_companychat = str(params.user_companychat)
-        user_message = (params.message or "").strip()
+            user_message = (params.message or "").strip()
 
-        if not user_message:
-            success_response = {"success": False, "exception": "empty message"}
-            return JSONResponse(content=success_response, status_code=status.HTTP_400_BAD_REQUEST)
+            if not user_message:
+                success_response = {"success": False, "exception": "empty message"}
+                return JSONResponse(content=success_response, status_code=status.HTTP_400_BAD_REQUEST)
 
-        async with langgraph_client() as client:
-            logger.info("===langgraph_client===")
+            async with langgraph_client() as client:
+                assistant_id = await get_or_create_assistant(client, params)
+                thread_id = await get_or_create_thread(client, assistant_id, params)
 
-            assistant_id = await get_or_create_assistant(client, params)
-            assistant_id_resolved = assistant_id
-            thread_id = await get_or_create_thread(client, assistant_id, params)
+                # 1) фиксируем вход пользователя
+                try:
+                    await _patch_user_meta(client, thread_id, user_companychat, delivery)
+                except Exception as e:
+                    logger.warning("thread.patch_failed", thread_id=thread_id, patch="last_user_ts", error=str(e))
 
-            logger.info("assistant_id: %s", assistant_id)
-            logger.info("thread_id: %s", thread_id)
+                run = await client.runs.create(
+                    thread_id=thread_id,
+                    assistant_id=assistant_id,
+                    input={"messages": [{"role": "user", "content": user_message}]},
+                    config=params.config,
+                    context=params.context,
+                    metadata=params.metadata,
+                    on_completion="delete",
+                )
 
-            # 1) фиксируем вход пользователя
-            try:
-                await _patch_user_meta(client, thread_id, user_companychat, delivery)
-            except Exception as e:
-                logger.warning("⚠️ last_user_ts patch failed thread=%s: %s", thread_id, e)
+                agent_response = await client.runs.join(
+                    thread_id=run["thread_id"],
+                    run_id=run["run_id"],
+                )
 
+                msgs = agent_response.get("messages")
+                text = _content_to_text(msgs[-1])
+                dialog_state = agent_response.get("data", {}).get("dialog_state")
 
-            run = await client.runs.create(
-                thread_id=thread_id,
-                assistant_id=assistant_id,
-                input={"messages": [{"role": "user", "content": user_message}]},
-                config=params.config,
-                context=params.context,
-                metadata=params.metadata,
-                on_completion="delete",
-            )
+                # 2) фиксируем время ответа ассистента и статус диалога
+                try:
+                    await _patch_assistant_meta(client, thread_id, user_companychat, dialog_state, delivery)
+                except Exception as e:
+                    logger.warning("thread.patch_failed", thread_id=thread_id, patch="last_assistant_ts", error=str(e))
 
-            t1 = time.perf_counter()
+            logger.info("agent.run.message_in", message=user_message)
+            logger.info("agent.run.message_out", message=text)
 
-            agent_response = await client.runs.join(
-                thread_id=run["thread_id"],
-                run_id=run["run_id"],
-            )
-
-            t2 = time.perf_counter()
-
-            msgs = agent_response.get("messages")
-            text = _content_to_text(msgs[-1])
-            dialog_state = agent_response.get("data", {}).get("dialog_state")
-
-            # 2) фиксируем время ответа ассистента и статус диалога
-            try:
-                await _patch_assistant_meta(client, thread_id, user_companychat, dialog_state, delivery)
-            except Exception as e:
-                logger.warning("⚠️ last_assistant_ts patch failed thread=%s: %s", thread_id, e)
-
-
-        info = "--OK--"
-        success_response = {"success": True, "exception": "no", "message": text}
-        status_code = status.HTTP_200_OK
+            success_response = {"success": True, "exception": "no", "message": text}
+            status_code = status.HTTP_200_OK
 
     except Exception as e:
+        logger.exception("agent.run.failed", error=str(e))
         success_response = {"success": False, "exception": str(e)}
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-
-    logger.info("\n--HUMAN--: %s", params.message)
-    logger.info("-----AI--: %s\n", text)
-
-    # лог времени (используем assistant_id если смогли получить)
-    assistant_label = f"{assistant_id_resolved or getattr(params, 'assistant_id', '?')}/{params.user_companychat}"
-
-    if info == "--OK--":
-        logger.info(
-            "%s: agent(%s) - create:%.3fs, exec:%.3fs, all:%.3fs",
-            info,
-            assistant_label,
-            t1 - t0,
-            t2 - t1,
-            t2 - t0,
-        )
-    else:
-        logger.error("%s. %s", info, success_response.get("exception"))
 
     return JSONResponse(content=success_response, status_code=status_code)
 
@@ -215,8 +185,6 @@ async def run_sync(params: AgentRunParams) -> JSONResponse:
 # -----------------------------
 
 async def get_or_create_assistant(client: LangGraphClient, params: AgentRunParams) -> str:
-    logger.info("===get_or_create_user_assistant===")
-
     user_companychat = str(params.user_companychat)
 
     assistants: list[Assistant] = await client.assistants.search(
@@ -224,7 +192,7 @@ async def get_or_create_assistant(client: LangGraphClient, params: AgentRunParam
     )
 
     if assistants:
-        logger.info("✅ Assistant exists!")
+        logger.info("assistant.found", assistant_id=assistants[0]["assistant_id"])
         return assistants[0]["assistant_id"]
 
     assistant: Assistant = await client.assistants.create(
@@ -233,18 +201,16 @@ async def get_or_create_assistant(client: LangGraphClient, params: AgentRunParam
         graph_id=params.assistant_id,
         metadata={"user_companychat": user_companychat},
     )
-    logger.info("✅ Assistant created successfully!")
+    logger.info("assistant.created", assistant_id=assistant["assistant_id"])
     return assistant["assistant_id"]
 
 
 async def get_or_create_thread(client: LangGraphClient, assistant_id: str, params: AgentRunParams) -> str:
-    logger.info("===get_or_create_thread===")
-
     last_message = (params.message or "").strip().lower()
     user_companychat = str(params.user_companychat)
 
     if last_message == "стоп":
-        logger.info("🛑 Стоп-слово для user_companychat=%s", user_companychat)
+        logger.info("dialog.stop_command", user_cc=user_companychat)
         await _delete_thread(client, user_companychat)
         return await _create_thread(client, assistant_id, params)
 
@@ -256,10 +222,10 @@ async def get_or_create_thread(client: LangGraphClient, assistant_id: str, param
     )
 
     if threads:
-        logger.info("✅ Поток найден: %s", threads[0]["thread_id"])
+        logger.info("thread.found", thread_id=threads[0]["thread_id"])
         return threads[0]["thread_id"]
 
-    logger.info("📝 Создаем первый поток для user_companychat=%s", user_companychat)
+    logger.info("thread.creating", user_cc=user_companychat)
     return await _create_thread(client, assistant_id, params)
 
 
@@ -271,12 +237,10 @@ async def _delete_thread(client: LangGraphClient, user_companychat: str) -> None
     )
     for thread in threads:
         await client.threads.delete(thread_id=thread["thread_id"])
-    logger.info("✅ Старые потоки удалены!")
+    logger.info("thread.old_deleted", count=len(threads))
 
 
 async def _create_thread(client: LangGraphClient, assistant_id: str, params: AgentRunParams) -> str:
-    # ttl = 30 if params.mcp_port in [5020, 5024, 5001, 15020, 15001] else 1440
-
     thread = await client.threads.create(
         graph_id=assistant_id,
         metadata={
@@ -294,45 +258,7 @@ async def _create_thread(client: LangGraphClient, assistant_id: str, params: Age
             "delivery_reply_to_history_id": int(params.reply_to_history_id),
             "delivery_access_token": str(params.access_token),
         },
-        # ttl={"ttl": ttl, "strategy": "delete"},
     )
 
-    logger.info("✅ Новый поток создан!")
+    logger.info("thread.created", thread_id=thread["thread_id"])
     return thread["thread_id"]
-
-
-
-
-# @router.post("/run")
-# async def run_stream(params: AgentRunParams):
-#     messages, context = build_messages_and_context(params)
-
-#     async def stream():
-#         async with langgraph_client() as client:
-#             async for part in client.runs.stream(
-#                 thread_id=None,
-#                 assistant_id=params.assistant_id, 
-#                 input={"messages": messages},
-#                 stream_mode=["values", "debug"],
-#                 config=params.config,
-#                 context=context,
-#                 metadata=params.metadata,
-#                 on_completion="delete",
-#             ):
-#                 if isinstance(part, Mapping):
-#                     payload = json.dumps(part, ensure_ascii=False, default=str)
-#                 else:
-#                     try:
-#                         payload = part.json()
-#                     except AttributeError:
-#                         try:
-#                             payload = json.dumps(
-#                                 part.__dict__, ensure_ascii=False, default=str
-#                             )
-#                         except Exception:
-#                             payload = json.dumps(
-#                                 {"event": str(part)}, ensure_ascii=False
-#                             )
-#                 yield f"data: {payload}\n\n".encode("utf-8")
-
-#     return StreamingResponse(stream(), media_type="text/event-stream")
