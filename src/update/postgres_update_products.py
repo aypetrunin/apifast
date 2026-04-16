@@ -3,15 +3,13 @@
 Запускается после обновления таблицы products из CRM.
 """
 
-import asyncio
-
 import asyncpg
 from asyncpg import Connection
 
 from ..zena_logging import get_logger  # type: ignore
+from .postgres_products_utils import classify, sanitize_name
 
 logger = get_logger()
-from .postgres_products_utils import classify, sanitize_name
 
 
 async def update_products_fields(channel_id: int, pool: asyncpg.Pool) -> bool:  # type: ignore[type-arg]
@@ -23,7 +21,11 @@ async def update_products_fields(channel_id: int, pool: asyncpg.Pool) -> bool:  
         else:
             result = await _update_products_channel1(conn, channel_id)
 
-        logger.info(f"Обновлено записей для channel_id={channel_id}: {result}")
+        logger.info(
+            "update.products.completed",
+            channel_id=channel_id,
+            result=result,
+        )
 
         return bool(result)
 
@@ -73,13 +75,3 @@ async def _update_products_channel2(conn: Connection, channel_id: int) -> str:
     return f"UPDATE {len(update_data)}"
 
 
-if __name__ == "__main__":
-    """Тест запуска функции обновления FAQ для канала с id=1."""
-    asyncio.run(update_products_fields(19))
-
-# Запуск для проверки
-# cd /home/copilot_superuser/petrunin/zena
-# set -a
-# source deploy/dev.env
-# set +a
-# uv run python -m apifast.src.update.postgres_update_products

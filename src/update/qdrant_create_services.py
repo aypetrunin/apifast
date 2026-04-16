@@ -10,17 +10,14 @@
 Примечание: Пересоздается коллекция полностью!!! Нужно переделать частичное по channel_id.
 """
 
-import asyncio
 from typing import Any
 
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели и структуры для работы с Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
 
-from ..zena_logging import get_logger  # type: ignore
-
-logger = get_logger()
 from ..settings import settings  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
 
 # Импорт общих клиентов и функций из модуля zena_qdrant
 from .qdrant_common import (
@@ -34,6 +31,8 @@ from .qdrant_common import (
 
 # Импорт функции для поиска FAQ по гибридной модели
 from .qdrant_retriever_faq_services import retriver_hybrid_async
+
+logger = get_logger()
 
 # Название коллекции Qdrant для сервисов
 QDRANT_COLLECTION = settings.qdrant_collection_services
@@ -56,7 +55,7 @@ async def qdrant_create_services_async(
     # Шаг 1: Загрузка данных из Postgres
     docs = await services_load_from_postgres(channel_id=channel_id, pool=pool)
     if not docs:
-        logger.warning("Нет данных для загрузки.")
+        logger.warning("qdrant.upload.empty", collection=collection_name)
         return False
 
     logger.info("Шаг 2: Сброс и создание коллекции")
@@ -70,7 +69,7 @@ async def qdrant_create_services_async(
     logger.info("Шаг 4: Проверка поиска с тестовым запросом")
     # Шаг 4: Проверка поиска с тестовым запросом
     results = await retriver_hybrid_async("Массаж", collection_name, channel_id)
-    logger.info(f"Найдено результатов: {len(results)}")
+    logger.info("qdrant.search.results", count=len(results))
 
     # Возвращаем True, если хотя бы один результат найден
     return bool(results)
@@ -122,7 +121,7 @@ async def fill_collection_services(
     collection_name: название коллекции Qdrant
     batch_size: размер батча для пакетной загрузки
     """
-    logger.info(f"Загрузка {len(docs)} сервисов в '{collection_name}'")
+    logger.info("qdrant.upload.started", count=len(docs), collection=collection_name)
 
     # Разбиваем данные на батчи и отображаем прогресс
     for batch in tqdm_asyncio(
@@ -161,11 +160,3 @@ async def fill_collection_services(
         )
 
 
-# -------------------- Запуск скрипта --------------------
-if __name__ == "__main__":
-    # Асинхронный запуск основной функции
-    asyncio.run(qdrant_create_services_async(QDRANT_COLLECTION))
-
-
-# cd /home/copilot_superuser/petrunin/mcp
-# uv run python -m zena_qdrant.qdrant.qdrant_create_services

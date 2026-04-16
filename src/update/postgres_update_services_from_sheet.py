@@ -1,14 +1,13 @@
 """Модуль обновления таблицы services в postgres из GoogleSheet."""
 
-import asyncio
 from typing import Any
 
 import asyncpg
 
 from ..zena_logging import get_logger  # type: ignore
+from .google_sheet_reader import UniversalGoogleSheetReader
 
 logger = get_logger()
-from .google_sheet_reader import UniversalGoogleSheetReader
 
 
 async def update_services_from_sheet(
@@ -24,7 +23,7 @@ async def update_services_from_sheet(
     5. Вставка новых данных услуг в таблицу services.
     6. Логирование этапов и возврат результата операции.
     """
-    logger.info(f"Начало обновления Services для channel_id={channel_id}")
+    logger.info("update.services.started", channel_id=channel_id)
 
     try:
         async with pool.acquire() as conn:
@@ -33,7 +32,7 @@ async def update_services_from_sheet(
                 "SELECT url_googlesheet_data FROM channel WHERE id = $1", channel_id
             )
             if not channel_row or not channel_row["url_googlesheet_data"]:
-                logger.error(f"URL GoogleSheet для канала {channel_id} не найден!")
+                logger.error("google_sheets.error", stage="fetch_url", channel_id=channel_id)
                 return False
 
             spreadsheet_url = channel_row["url_googlesheet_data"]
@@ -49,7 +48,10 @@ async def update_services_from_sheet(
             rows_filtered = [row for row in cleaned_rows if row[1]]  # row[1] - service_name
 
             logger.info(
-                f"Добавить в базу {len(rows_filtered)} строк Services для channel_id={channel_id}"
+                "postgres.insert.planned",
+                table="services",
+                count=len(rows_filtered),
+                channel_id=channel_id,
             )
 
             async with conn.transaction():
@@ -61,19 +63,26 @@ async def update_services_from_sheet(
 
                 # Удаление связанных записей из products_services
                 if ids_to_delete:
-                    logger.info("Удаление в таблице 'products_services'.")
+                    logger.info("postgres.delete", table="products_services")
                     result = await conn.execute(
                         "DELETE FROM products_services WHERE service_id = ANY($1::int[])",
                         ids_to_delete,
                     )
-                    logger.info(f"Удаление в таблице 'products_services'. Удалено - {result}")
+                    logger.info(
+                        "postgres.delete",
+                        table="products_services",
+                        result=result,
+                    )
                 # Удаление старых сервисов для канала
                 result = await conn.execute(
                     "DELETE FROM services WHERE channel_id = $1", channel_id
                 )
                 deleted_count = int(result.split()[-1])
                 logger.info(
-                    f"Удалено из базы {deleted_count} строк Services для channel_id={channel_id}"
+                    "postgres.delete",
+                    table="services",
+                    count=deleted_count,
+                    channel_id=channel_id,
                 )
 
                 # Вставка новых сервисов
@@ -90,12 +99,19 @@ async def update_services_from_sheet(
                     )
 
             logger.info(
-                f"Добавлено в базу {len(rows_filtered)} строк Services для channel_id={channel_id}"
+                "postgres.insert",
+                table="services",
+                count=len(rows_filtered),
+                channel_id=channel_id,
             )
             return True
 
     except Exception as e:
-        logger.error(f"Ошибка обновления Services для channel_id={channel_id}: {e}")
+        logger.error(
+            "update.services.failed",
+            channel_id=channel_id,
+            error=str(e),
+        )
         return False
 
 
@@ -129,11 +145,3 @@ def _clean_service_row(row: dict[str, Any], channel_id: int) -> tuple[Any, ...]:
     )
 
 
-if __name__ == "__main__":
-    """Тест запуска функции обновления services для канала с id=1."""
-    result = asyncio.run(update_services_from_sheet(17))
-
-
-# Запуск для проверки
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update.postgres_update_services_from_sheet

@@ -1,7 +1,5 @@
 """Модуль вспомогательных функций postgres."""
 
-import asyncio
-
 import asyncpg
 
 
@@ -19,9 +17,3 @@ async def is_channel_id(channel_id: int, pool: asyncpg.Pool) -> bool:  # type: i
         return bool(row)
 
 
-if __name__ == "__main__":
-    asyncio.run(is_channel_id(11))
-
-
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update_postgres_qdrant.postgres_utils

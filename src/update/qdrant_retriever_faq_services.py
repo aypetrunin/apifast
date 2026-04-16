@@ -1,14 +1,13 @@
 """Модуль реализует ретриверы по коллекциям 'faq', 'srvices', 'zena2_services_key'-вспомогательной коллекции."""
 
-import asyncio
 from typing import Any
 
 from qdrant_client import models
 
+from ..settings import settings  # type: ignore
 from ..zena_logging import get_logger  # type: ignore
 
 logger = get_logger()
-from ..settings import settings  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
@@ -170,45 +169,3 @@ async def retriver_hybrid_async(
     return await retry_request(_retriever_logic)
 
 
-# ===============================================================
-# 🧪 Тестовый запуск для проверки работы retriever
-# ===============================================================
-if __name__ == "__main__":
-
-    async def main() -> None:
-        """Тестовый пример поиска в двух коллекциях Qdrant.
-
-        1. FAQ — поиск по тексту вопроса/ответа
-        2. Services — поиск по услугам с фильтрацией по каналу
-        """
-        # # --- Поиск по базе FAQ ---
-        # results_faq = await retriver_hybrid_async(
-        #     query="Абонент", database_name=QDRANT_COLLECTION_FAQ, channel_id=2
-        # )
-        # logger.info("📘 FAQ results:")
-        # logger.info(results_faq)
-
-        # # --- Поиск по базе услуг ---
-        # results_services = await retriver_hybrid_async(
-        #     query="Тейпирование", database_name=QDRANT_COLLECTION_SERVICES, channel_id=2
-        # )
-        # logger.info("💆 Services results:")
-        # logger.info(results_services)
-
-        # --- Поиск по базе услуг ---
-        results_temp = await retriver_hybrid_async(
-            query="Лазерная эпиляция.Прайс Алисы Викторовны - L+ (подмышки + глубокое бикини + ноги полностью + руки полностью + белая линия живота)",
-            database_name=QDRANT_COLLECTION_TEMP,
-            channel_id=2,
-            hybrid=True,
-        )
-        logger.debug("qdrant.search.temp_result")
-        # logger.info(results_temp)
-        for res in results_temp:
-            logger.info("qdrant.search.temp_result", result=str(res))
-    # Запускаем асинхронный тест
-    asyncio.run(main())
-
-
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update.qdrant_retriever_faq_services

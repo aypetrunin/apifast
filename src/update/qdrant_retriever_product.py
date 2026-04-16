@@ -1,5 +1,4 @@
 """Модуль в котором реализованы ретриверы по коллекции 'zena2_products_services_view'."""
-import asyncio
 from typing import Any
 
 from qdrant_client import models
@@ -18,14 +17,14 @@ from qdrant_client.http.models import (
 
 from ..settings import settings  # type: ignore
 from ..zena_logging import get_logger  # type: ignore
-
-logger = get_logger()
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
     qdrant_client,  # Асинхронный клиент Qdrant
     retry_request,  # Надёжный вызов с повторными попытками
 )
+
+logger = get_logger()
 
 # -------------------- Конфигурация --------------------
 COLLECTION_NAME = settings.qdrant_collection_products
@@ -339,7 +338,7 @@ async def retriever_product_hybrid_async(
         product_type=product_type,
         use_should=True,
     )
-    logger.info(f"query_filter: {query_filter}")
+    logger.info("qdrant.search.filter", query_filter=str(query_filter))
     async def _logic() -> list[dict[str, Any]]:
         if query:
             # --- Генерация векторов ---
@@ -378,15 +377,3 @@ async def retriever_product_hybrid_async(
     return await retry_request(_logic)
 
 
-if __name__ == "__main__":
-    # Асинхронный запуск основной функции
-    asyncio.run(
-        retriever_product_hybrid_async(
-            channel_id=1,
-            query='массаж',
-        )
-    )
-
-
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update.qdrant_retriever_product

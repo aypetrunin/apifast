@@ -1,15 +1,14 @@
 """Модуль обновления таблицы faq в postgres из GoogleSheet."""
 
-import asyncio
 from typing import Any
 
 import asyncpg
 from asyncpg import Connection
 
 from ..zena_logging import get_logger  # type: ignore
+from .google_sheet_reader import UniversalGoogleSheetReader
 
 logger = get_logger()
-from .google_sheet_reader import UniversalGoogleSheetReader
 
 
 async def update_faq_from_sheet(channel_id: int, pool: asyncpg.Pool, sheet_name: str = "faq") -> bool:  # type: ignore[type-arg]
@@ -23,7 +22,7 @@ async def update_faq_from_sheet(channel_id: int, pool: asyncpg.Pool, sheet_name:
     5. Вставляет отфильтрованные новые записи в таблицу FAQ.
     6. Логгирует этапы и возвращает True в случае успеха или False при ошибке.
     """
-    logger.info(f"Начало обновления FAQ для channel_id={channel_id}")
+    logger.info("update.faq.started", channel_id=channel_id)
 
     try:
         async with pool.acquire() as conn:
@@ -39,7 +38,10 @@ async def update_faq_from_sheet(channel_id: int, pool: asyncpg.Pool, sheet_name:
             # Валидация и фильтрация полученных данных (убираются пустые/некорректные записи)
             faqs_filtered = _filter_valid_faqs(faqs)
             logger.info(
-                f"Добавить в базу {len(faqs_filtered)} строк FAQ для channel_id={channel_id}"
+                "postgres.insert.planned",
+                table="faq",
+                count=len(faqs_filtered),
+                channel_id=channel_id,
             )
 
             # Использование транзакции для атомарного удаления старых и вставки новых записей
@@ -47,7 +49,10 @@ async def update_faq_from_sheet(channel_id: int, pool: asyncpg.Pool, sheet_name:
                 # Удаление старых FAQ из базы для данного канала
                 deleted_count = await _delete_existing_faq(conn, channel_id)
                 logger.info(
-                    f"Удалено из базы {deleted_count} строк FAQ для channel_id={channel_id}"
+                    "postgres.delete",
+                    table="faq",
+                    count=deleted_count,
+                    channel_id=channel_id,
                 )
 
                 # Формирование кортежей значений для вставки в таблицу FAQ
@@ -61,13 +66,16 @@ async def update_faq_from_sheet(channel_id: int, pool: asyncpg.Pool, sheet_name:
                     )
 
             logger.info(
-                f"Добавлено в базу {len(insert_tuples)} строк FAQ для channel_id={channel_id}"
+                "postgres.insert",
+                table="faq",
+                count=len(insert_tuples),
+                channel_id=channel_id,
             )
             return True
 
     except Exception as e:
         # Логгирование ошибки в случае неудачи обновления
-        logger.error(f"Ошибка обновления FAQ для channel_id={channel_id}: {e}")
+        logger.error("update.faq.failed", channel_id=channel_id, error=str(e))
         return False
 
 
@@ -81,7 +89,7 @@ async def _fetch_spreadsheet_url(conn: Connection, channel_id: int) -> str:
         "SELECT url_googlesheet_data FROM channel WHERE id = $1", channel_id
     )
     if not channel_row or not channel_row["url_googlesheet_data"]:
-        logger.error(f"URL GoogleSheet для канала {channel_id} не найден!")
+        logger.error("google_sheets.error", stage="fetch_url", channel_id=channel_id)
         raise ValueError("No GoogleSheet URL found")
     return channel_row["url_googlesheet_data"]
 
@@ -132,12 +140,3 @@ def _build_insert_tuples(
     ]
 
 
-if __name__ == "__main__":
-    """Тест запуска функции обновления FAQ для канала с id=1."""
-    result = asyncio.run(update_faq_from_sheet(1))
-    logger.info(f"Результат обновления: {result}")
-
-
-# Запуск для проверки
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update_postgres_qdrant.update_faq_from_sheet

@@ -3,7 +3,6 @@
 Связано с особенностями формирования названий в Юклайнс.
 """
 
-import asyncio
 import re
 
 import asyncpg
@@ -376,9 +375,7 @@ async def test_classification(pool: asyncpg.Pool, channel_id: int = 2, limit: in
             limit,
         )
 
-        logger.info(
-            f"Тест классификации для channel_id={channel_id} (первые {limit} записей):\n"
-        )
+        logger.info("products.classification.test", channel_id=channel_id, limit=limit)
 
         for r in rows:
             category = classify(
@@ -390,14 +387,11 @@ async def test_classification(pool: asyncpg.Pool, channel_id: int = 2, limit: in
             display_name = sanitize_name(r["product_name"])
             full_name = f"{category} - {display_name}"
 
-            logger.info(f"ID: {r['product_id']}")
-            logger.info(f"  category: {category}")
-            logger.info(f"  product_full_name: {full_name}\n")
+            logger.info(
+                "products.classification.result",
+                product_id=r["product_id"],
+                category=category,
+                product_full_name=full_name,
+            )
 
 
-if __name__ == "__main__":
-    asyncio.run(test_classification())
-
-
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update.postgres_products_utils

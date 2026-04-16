@@ -10,17 +10,14 @@
 Примечание: Пересоздается коллекция полностью!!! Нужно переделать частичное по channel_id.
 """
 
-import asyncio
 from typing import Any
 
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели для работы с точками Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар для итераций
 
-from ..zena_logging import get_logger  # type: ignore
-
-logger = get_logger()
 from ..settings import settings  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
 
 # Импорт общих клиентов и функций из модуля zena_qdrant
 from .qdrant_common import (
@@ -34,6 +31,8 @@ from .qdrant_common import (
 
 # Импорт функции для поиска FAQ по гибридной модели
 from .qdrant_retriever_faq_services import retriver_hybrid_async
+
+logger = get_logger()
 
 # Название коллекции в Qdrant
 QDRANT_COLLECTION = settings.qdrant_collection_faq
@@ -51,7 +50,7 @@ async def qdrant_create_faq_async(pool: asyncpg.Pool) -> bool:  # type: ignore[t
     # Шаг 1: Загрузка данных из Postgres
     docs = await faq_load_from_postgres(pool)
     if not docs:
-        logger.warning("Нет данных для загрузки.")
+        logger.warning("qdrant.upload.empty", collection=QDRANT_COLLECTION)
         return False
 
     # Шаг 2: Сброс и создание коллекции в Qdrant
@@ -62,7 +61,7 @@ async def qdrant_create_faq_async(pool: asyncpg.Pool) -> bool:  # type: ignore[t
 
     # Шаг 4: Проверка работы поиска с тестовым запросом
     results = await retriver_hybrid_async("Абонемент", QDRANT_COLLECTION)
-    logger.info(f"Найдено результатов: {len(results)}")
+    logger.info("qdrant.search.results", count=len(results))
 
     # Возвращаем True если поиск вернул хотя бы один результат
     return bool(results)
@@ -96,7 +95,7 @@ async def fill_collection_faq(
     collection_name: название коллекции Qdrant
     batch_size: размер батча для пакетной загрузки
     """
-    logger.info(f"Загрузка {len(docs)} FAQ-записей в '{collection_name}'")
+    logger.info("qdrant.upload.started", count=len(docs), collection=collection_name)
 
     # Разбиваем данные на батчи и отображаем прогресс
     for batch in tqdm_asyncio(batch_iterable(docs, batch_size), desc="FAQ batches"):
@@ -133,11 +132,3 @@ async def fill_collection_faq(
         )
 
 
-# -------------------- Запуск скрипта --------------------
-if __name__ == "__main__":
-    # Асинхронный запуск основной функции
-    asyncio.run(qdrant_create_faq_async())
-
-
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m zena_qdrant.qdrant.qdrant_creat_faq

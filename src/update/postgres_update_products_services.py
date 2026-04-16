@@ -6,9 +6,9 @@ import asyncpg
 from ..settings import settings  # type: ignore
 from ..zena_logging import get_logger  # type: ignore
 from .qdrant_create_services import qdrant_create_services_async
+from .qdrant_retriever_faq_services import retriver_hybrid_async
 
 logger = get_logger()
-from .qdrant_retriever_faq_services import retriver_hybrid_async
 
 QDRANT_COLLECTION_TEMP = settings.qdrant_collection_temp
 
@@ -18,7 +18,7 @@ async def _try_enable_amcheck(conn: asyncpg.Connection) -> bool:
         await conn.execute("CREATE EXTENSION IF NOT EXISTS amcheck;")
         return True
     except Exception as e:
-        logger.warning(f"amcheck недоступен (нет прав/расширения): {e}")
+        logger.warning("postgres.amcheck_unavailable", error=str(e))
         return False
 
 
@@ -89,7 +89,7 @@ async def _check_and_fix_products_indexes(conn: asyncpg.Connection) -> None:
         if ok:
             continue
         bad.append((idx, err or "unknown error"))
-        logger.error(f"Индекс поврежден/подозрителен: {idx}. Ошибка: {err}")
+        logger.error("postgres.index.corrupted", index=idx, error=err)
 
     if not bad:
         logger.info("Проверка индексов public.products: OK")
@@ -98,10 +98,10 @@ async def _check_and_fix_products_indexes(conn: asyncpg.Connection) -> None:
     # Сначала чиним точечно каждый битый индекс
     for idx, _ in bad:
         try:
-            logger.warning(f"REINDEX INDEX {idx}")
+            logger.warning("postgres.reindex", index=idx)
             await _reindex_index(conn, idx)
         except Exception as e:
-            logger.error(f"REINDEX INDEX не удался для {idx}: {e}")
+            logger.error("postgres.reindex.failed", index=idx, error=str(e))
 
     # Перепроверка: если что-то осталось — REINDEX TABLE целиком
     still_bad: list[str] = []
@@ -109,11 +109,13 @@ async def _check_and_fix_products_indexes(conn: asyncpg.Connection) -> None:
         ok, err = await _btree_index_check(conn, idx)
         if not ok:
             still_bad.append(idx)
-            logger.error(f"После REINDEX INDEX всё ещё проблема: {idx}. Ошибка: {err}")
+            logger.error("postgres.reindex.still_broken", index=idx, error=err)
 
     if still_bad:
         logger.warning(
-            f"Не все индексы починились точечно ({len(still_bad)}). Делаю REINDEX TABLE public.products"
+            "postgres.reindex.table_fallback",
+            count=len(still_bad),
+            table="public.products",
         )
         await _reindex_table(conn, "public.products")
 
@@ -121,7 +123,7 @@ async def _check_and_fix_products_indexes(conn: asyncpg.Connection) -> None:
     try:
         await conn.execute("ANALYZE public.products;")
     except Exception as e:
-        logger.warning(f"ANALYZE public.products не удался: {e}")
+        logger.warning("postgres.analyze.failed", table="public.products", error=str(e))
 
 
 async def update_products_services(
@@ -132,14 +134,19 @@ async def update_products_services(
     max_parallel: int = 10,
 ) -> bool:
     logger.info("update_products_services")
-    logger.info(f"Начало обновления 'products_services' для channel_id={channel_id}")
+    logger.info(
+        "update.products_services.started",
+        channel_id=channel_id,
+    )
 
     if qdrant_create_services:
         logger.info("Создания вспомогательной векторной.")
         result = await qdrant_create_services_async(collection_name, channel_id, pool)
         if not result:
             logger.error(
-                f"Ошибка создания вспомогательной векторной базы '{QDRANT_COLLECTION_TEMP}' для channel_id={channel_id}"
+                "qdrant.collection.create_failed",
+                collection=QDRANT_COLLECTION_TEMP,
+                channel_id=channel_id,
             )
 
     semaphore = asyncio.Semaphore(max_parallel)
@@ -186,13 +193,16 @@ async def update_products_services(
                     )
 
             logger.info(
-                f"Обновление 'products_services' успешно завершено для channel_id={channel_id}"
+                "update.products_services.completed",
+                channel_id=channel_id,
             )
             return True
 
     except Exception as e:
         logger.error(
-            f"Ошибка обновления 'products_services' для channel_id={channel_id}: {e}"
+            "update.products_services.failed",
+            channel_id=channel_id,
+            error=str(e),
         )
         return False
 
@@ -215,6 +225,8 @@ async def _fetch_service_id(
                 return (product["article"], result[0]["id"])
         except Exception as e:
             logger.error(
-                f"Ошибка при получении service_id для продукта {product['article']}: {e}"
+                "postgres.fetch.service_id_failed",
+                article=product["article"],
+                error=str(e),
             )
         return None

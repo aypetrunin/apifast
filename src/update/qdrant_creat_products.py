@@ -1,16 +1,13 @@
 """Модуль реализует процесс создания коллекции для поиска услуг/продуктов."""
 
-import asyncio
 from typing import Any
 
 import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели для работы с Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар
 
-from ..zena_logging import get_logger  # type: ignore
-
-logger = get_logger()
 from ..settings import settings  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Dense embeddings через OpenAI
     batch_iterable,  # Генератор для разбивки на батчи
@@ -20,6 +17,8 @@ from .qdrant_common import (
     retry_request,  # Retry helper для надёжного выполнения
 )
 from .qdrant_retriever_product import retriever_product_hybrid_async
+
+logger = get_logger()
 
 # Название коллекции Qdrant для продуктов и услуг
 QDRANT_COLLECTION = settings.qdrant_collection_products
@@ -45,7 +44,7 @@ async def qdrant_create_products_async(pool: asyncpg.Pool) -> bool:  # type: ign
     # Шаг 1: Загрузка данных
     docs = await products_load_from_postgres(pool)
     if not docs:
-        logger.warning("Нет данных для загрузки.")
+        logger.warning("qdrant.upload.empty", collection=QDRANT_COLLECTION)
         return False
 
     # Шаг 2: Сброс и создание коллекции с текстовыми индексами
@@ -58,7 +57,7 @@ async def qdrant_create_products_async(pool: asyncpg.Pool) -> bool:  # type: ign
 
     # Шаг 4: Проверка поиска (пример запроса)
     results = await retriever_product_hybrid_async(1, "массаж")
-    logger.info(f"Найдено результатов: {len(results)}")
+    logger.info("qdrant.search.results", count=len(results))
 
     # Возвращаем True, если хотя бы один результат найден
     return bool(results)
@@ -88,7 +87,7 @@ async def fill_collection_products(
     collection_name: название коллекции Qdrant
     batch_size: размер батча для пакетной загрузки
     """
-    logger.info(f"Загрузка {len(docs)} продуктов в '{collection_name}'")
+    logger.info("qdrant.upload.started", count=len(docs), collection=collection_name)
 
     # Разбиваем данные на батчи и отображаем прогресс
     for batch in tqdm_asyncio(
@@ -124,11 +123,3 @@ async def fill_collection_products(
         )
 
 
-# -------------------- Запуск скрипта --------------------
-if __name__ == "__main__":
-    # Асинхронный запуск основной функции
-    asyncio.run(qdrant_create_products_async())
-
-
-# cd /home/copilot_superuser/petrunin/zena/apifast
-# uv run python -m src.update.qdrant_creat_products

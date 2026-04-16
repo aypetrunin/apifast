@@ -14,10 +14,10 @@ from openai.types.create_embedding_response import CreateEmbeddingResponse
 from qdrant_client import AsyncQdrantClient, models
 
 # Свои модули
+from ..settings import settings  # type: ignore
 from ..zena_logging import get_logger  # type: ignore
 
 logger = get_logger()
-from ..settings import settings  # type: ignore
 
 T = TypeVar("T")
 
