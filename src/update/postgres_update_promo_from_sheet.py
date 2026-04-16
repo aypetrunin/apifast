@@ -6,7 +6,9 @@ from typing import Any
 import asyncpg
 from asyncpg import Connection
 
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from ..settings import settings  # type: ignore
 from .google_sheet_reader import UniversalGoogleSheetReader
 

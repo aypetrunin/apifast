@@ -7,7 +7,9 @@ import asyncpg  # Асинхронный клиент для PostgreSQL
 from qdrant_client import models  # Модели для работы с Qdrant
 from tqdm.asyncio import tqdm_asyncio  # Асинхронный прогресс-бар
 
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from ..settings import settings  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Dense embeddings через OpenAI

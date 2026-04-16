@@ -8,7 +8,9 @@ import asyncio
 import asyncpg
 from asyncpg import Connection
 
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from ..settings import settings  # type: ignore
 from .postgres_products_utils import classify, sanitize_name
 

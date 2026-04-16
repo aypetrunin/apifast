@@ -14,7 +14,9 @@ from openai.types.create_embedding_response import CreateEmbeddingResponse
 from qdrant_client import AsyncQdrantClient, models
 
 # Свои модули
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from ..settings import settings  # type: ignore
 
 T = TypeVar("T")
@@ -71,44 +73,15 @@ async def retry_request(
             return result  # обычная функция
         except Exception as e:
             if attempt == retries:
-                logger.exception(f"Последняя неудачная попытка {func.__name__}: {e}")
+                logger.exception("retry.exhausted", func=func.__name__, error=str(e))
                 raise
             wait = backoff**attempt + random.uniform(0, 1)
             logger.warning(
-                f"Ошибка в {func.__name__}: {e} | попытка {attempt}/{retries} — повтор через {wait:.1f}s"
+                "retry.attempt", func=func.__name__, error=str(e), attempt=attempt, retries=retries, wait=round(wait, 1)
             )
             await asyncio.sleep(wait)
     assert False, "Unreachable: All attempts failed but no exception was thrown"
 
-
-# Универсальная функция с повторной попыткой для асинхронных/синхронных функций
-# async def retry_request(
-#     func: Callable[..., Awaitable[T]],  # функция, которую нужно выполнить
-#     *args: Any,
-#     retries: int = 3,  # количество попыток
-#     backoff: float = 2.0,  # коэффициент экспоненциального backoff
-#     **kwargs: Any,
-# ) -> T:
-#     """Универсальная функция с повторной попыткой для асинхронных/синхронных функций."""
-#     for attempt in range(1, retries + 1):
-#         try:
-#             # Проверяем, является ли функция асинхронной
-#             if inspect.iscoroutinefunction(func):
-#                 return await func(*args, **kwargs)
-#             return func(*args, **kwargs)
-#         except Exception as e:
-#             # Если это последняя попытка — логируем как ошибку и пробрасываем
-#             if attempt == retries:
-#                 logger.exception(f"Последняя неудачная попытка {func.__name__}: {e}")
-#                 raise
-#             # Вычисляем время ожидания с небольшой случайной погрешностью
-#             wait = backoff**attempt + random.uniform(0, 1)
-#             logger.warning(
-#                 f"Ошибка в {func.__name__}: {e} | попытка {attempt}/{retries} — повтор через {wait:.1f}s"
-#             )
-#             await asyncio.sleep(wait)
-#     # Добавьте этот return, чтобы у функции всегда был return:
-#     assert False, "Unreachable: All attempts failed but no exception was thrown"
 
 
 # -------------------- Batch helper --------------------
@@ -161,9 +134,9 @@ async def reset_collection(
     try:
         # Пробуем удалить коллекцию (если она существует)
         await client.delete_collection(collection_name)
-        logger.info(f'Коллекция "{collection_name}" удалена.')
+        logger.info("qdrant.collection.deleted", collection=collection_name)
     except Exception:
-        logger.warning(f'Коллекция "{collection_name}" не найдена или ошибка удаления.')
+        logger.warning("qdrant.collection.not_found", collection=collection_name)
 
     # Создаем новую коллекцию с конфигурацией HNSW и векторных пространств
     await client.create_collection(
@@ -188,7 +161,7 @@ async def reset_collection(
             ),
         },
     )
-    logger.info(f'Коллекция "{collection_name}" создана.')
+    logger.info("qdrant.collection.created", collection=collection_name)
 
     # Создаем текстовые индексы для указанных полей
     if text_index_fields:
@@ -204,20 +177,4 @@ async def reset_collection(
                     lowercase=True,
                 ),
             )
-            logger.info(f'Индекс "{field}" создан.')
-
-    # if text_index_fields:
-    #     default_text_index_params = {
-    #         "type": "text",
-    #         "tokenizer": models.TokenizerType.WORD,
-    #         "min_token_len": 1,
-    #         "max_token_len": 15,
-    #         "lowercase": True,
-    #     }
-    #     for field in text_index_fields:
-    #         await client.create_payload_index(
-    #             collection_name=collection_name,
-    #             field_name=field,
-    #             field_schema=models.TextIndexParams(**default_text_index_params),
-    #         )
-    #         logger.info(f'Индекс "{field}" создан.')
+            logger.info("qdrant.index.created", collection=collection_name, field=field)

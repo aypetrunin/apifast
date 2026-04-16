@@ -3,9 +3,11 @@ from typing import Any
 
 import asyncpg
 
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
 from ..settings import settings  # type: ignore
 from .qdrant_create_services import qdrant_create_services_async
+
+logger = get_logger()
 from .qdrant_retriever_faq_services import retriver_hybrid_async
 
 QDRANT_COLLECTION_TEMP = settings.qdrant_collection_temp

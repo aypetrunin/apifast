@@ -5,7 +5,9 @@ from typing import Any
 
 from qdrant_client import models
 
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from ..settings import settings  # type: ignore
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
@@ -200,10 +202,10 @@ if __name__ == "__main__":
             channel_id=2,
             hybrid=True,
         )
-        logger.info("💆 Temp result:")
+        logger.debug("qdrant.search.temp_result")
         # logger.info(results_temp)
         for res in results_temp:
-            print(res)
+            logger.info("qdrant.search.temp_result", result=str(res))
     # Запускаем асинхронный тест
     asyncio.run(main())
 

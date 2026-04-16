@@ -17,7 +17,9 @@ from qdrant_client.http.models import (
 )
 
 from ..settings import settings  # type: ignore
-from ..common import logger
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from .qdrant_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)

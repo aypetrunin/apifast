@@ -8,7 +8,9 @@ import re
 
 import asyncpg
 
-from ..common import logger  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 from ..settings import settings  # type: ignore
 
 POSTGRES_CONFIG = settings.postgres_config

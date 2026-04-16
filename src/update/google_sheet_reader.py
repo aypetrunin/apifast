@@ -13,7 +13,10 @@ from typing import Any, Type
 
 import gspread
 
-from ..common import logger, retry_async  # type: ignore
+from ..common import retry_async  # type: ignore
+from ..zena_logging import get_logger  # type: ignore
+
+logger = get_logger()
 
 # 🔐 кеш временного файла, чтобы не плодить файлы при retry
 _TMP_SA_FILE: str | None = None
@@ -21,9 +24,6 @@ _TMP_SA_FILE: str | None = None
 
 BASE_DIR = Path(__file__).resolve().parents[3]   # /app
 SERVICE_ACCOUNT_FILE = str(BASE_DIR / "deploy" / "aiucopilot-d6773dc31cb0.json")
-
-print(SERVICE_ACCOUNT_FILE)
-print(os.path.exists(SERVICE_ACCOUNT_FILE))
 
 def get_service_account_file() -> str:
     """
