@@ -1,5 +1,6 @@
 """Модуль создания endpointa '/agent/run' - агента-бота."""
 
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -117,8 +118,9 @@ async def run_sync(params: AgentRunParams) -> JSONResponse:
     success_response: dict[str, Any] = {"success": False, "exception": "unknown"}
 
     user_companychat = str(params.user_companychat)
+    request_id = f"{user_companychat}:{int(time.time())}"
     clear_contextvars()
-    bind_contextvars(user_cc=user_companychat)
+    bind_contextvars(user_cc=user_companychat, request_id=request_id)
 
     try:
         async with timed_block("agent.run"):
@@ -140,6 +142,11 @@ async def run_sync(params: AgentRunParams) -> JSONResponse:
                     await _patch_user_meta(client, thread_id, user_companychat, delivery)
                 except Exception as e:
                     logger.warning("thread.patch_failed", thread_id=thread_id, patch="last_user_ts", error=str(e))
+
+                # Инжектим request_id для сквозной трассировки
+                if params.context is None:
+                    params.context = {}
+                params.context["_request_id"] = request_id
 
                 run = await client.runs.create(
                     thread_id=thread_id,
