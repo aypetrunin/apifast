@@ -2,6 +2,8 @@ services:
   apifast:
     build: .
     image: "zena_apifast:${ENV}"
+    labels:
+      logging: "loki"
     env_file:
       - ../deploy/dev.env
     environment:
