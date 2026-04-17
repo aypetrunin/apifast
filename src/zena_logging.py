@@ -13,7 +13,9 @@
 """
 
 import functools
+import logging
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
@@ -58,6 +60,19 @@ def setup_logging() -> None:
     log_format = os.getenv("LOG_FORMAT", "").strip().lower()
     env = os.getenv("ENV", "prod").strip().lower()
     is_dev = env == "dev" and log_format != "json"
+
+    level_name = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    # stdlib root logger по умолчанию WARNING без handlers — это молча проглатывает
+    # INFO-события structlog-а. Без этого вызова docker logs покажет только
+    # uvicorn access (у него свой handler), а наши log.info(...) будут не видны.
+    logging.basicConfig(
+        level=level,
+        stream=sys.stdout,
+        format="%(message)s",
+        force=True,
+    )
 
     processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
